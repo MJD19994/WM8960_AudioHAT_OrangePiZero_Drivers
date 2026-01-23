@@ -60,37 +60,24 @@ arecord -l  # List capture devices
 
 ## GPIO Pin Mapping
 
-The WM8960 Audio HAT uses I2C for control and I2S for audio data. The I2C pins are compatible between Raspberry Pi and Orange Pi Zero 2W at the same physical locations. The I2S pins require rewiring as shown below:
+The WM8960 Audio HAT uses I2C for control and I2S for audio data. **The 40-pin GPIO header on Orange Pi Zero 2W is compatible with Raspberry Pi HATs** - no rewiring is required. The pins are at the same physical locations and just need correct device tree configuration.
 
-### I2C Pins (Compatible - Same Physical Location)
+### Pin Compatibility Table
 
-| Function | Raspberry Pi | Orange Pi Zero 2W | Compatible |
-|----------|-------------|-------------------|------------|
-| I2C SDA  | Pin 3       | Pin 3 (PI8)       | ✅ Yes     |
-| I2C SCL  | Pin 5       | Pin 5 (PI7)       | ✅ Yes     |
-| 3.3V     | Pin 1       | Pin 1             | ✅ Yes     |
-| GND      | Pin 6, 9    | Pin 6, 9          | ✅ Yes     |
+| Function   | Physical Pin | Raspberry Pi | Orange Pi Zero 2W | Compatible |
+|------------|--------------|--------------|-------------------|------------|
+| I2C SDA    | Pin 3        | GPIO2        | PI8               | ✅ Yes     |
+| I2C SCL    | Pin 5        | GPIO3        | PI7               | ✅ Yes     |
+| I2S BCLK   | Pin 12       | GPIO18       | PI1               | ✅ Yes     |
+| I2S LRCK   | Pin 35       | GPIO19       | PI2               | ✅ Yes     |
+| I2S DIN    | Pin 38       | GPIO20       | PI3               | ✅ Yes     |
+| I2S DOUT   | Pin 40       | GPIO21       | PI3               | ✅ Yes     |
+| 3.3V       | Pin 1        | 3.3V         | 3.3V              | ✅ Yes     |
+| GND        | Pin 6, 9     | GND          | GND               | ✅ Yes     |
 
-### I2S Pins (Requires Rewiring)
+### Installation
 
-| Function   | Raspberry Pi Pin | Orange Pi Pin | Allwinner GPIO |
-|------------|------------------|---------------|----------------|
-| I2S BCLK   | Pin 12 (GPIO18)  | Pin 23        | PH6            |
-| I2S LRCK   | Pin 35 (GPIO19)  | Pin 19        | PH7            |
-| I2S DOUT   | Pin 40 (GPIO21)  | Pin 21        | PH8            |
-| I2S DIN    | Pin 38 (GPIO20)  | N/A           | (Not used)     |
-
-### Wiring Instructions
-
-For the ReSpeaker 2-Mic HAT to work on Orange Pi Zero 2W:
-
-1. **Direct Plug-in**: The HAT can be plugged directly as I2C (control) works at pins 3 and 5
-2. **I2S Audio Wiring**: You may need to verify or add jumper wires:
-   - Connect Raspberry Pi Pin 12 → Orange Pi Pin 23 (BCLK)
-   - Connect Raspberry Pi Pin 35 → Orange Pi Pin 19 (LRCK)
-   - Connect Raspberry Pi Pin 40 → Orange Pi Pin 21 (DOUT)
-
-**Note**: Some HAT revisions may work directly if the I2S signals are routed via I2C-controlled switching. Test with `wm8960-status` after installation.
+Simply plug the ReSpeaker 2-Mic HAT directly onto the Orange Pi Zero 2W's 40-pin header - no additional wiring needed. The device tree overlay handles the GPIO pin mapping to the correct peripheral functions.
 
 ## Usage Examples
 

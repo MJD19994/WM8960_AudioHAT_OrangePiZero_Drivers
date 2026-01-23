@@ -8,12 +8,16 @@
  * This overlay is an alternative using I2S3 interface which has better
  * support on some kernel versions.
  *
- * GPIO Pin Mapping (40-pin header):
+ * GPIO Pin Mapping (40-pin header - Raspberry Pi compatible):
  *   Pin 3  (PI8)  - I2C1 SDA
  *   Pin 5  (PI7)  - I2C1 SCL
- *   Pin 19 (PH7)  - I2S3 LRCK
- *   Pin 21 (PH8)  - I2S3 DATA
- *   Pin 23 (PH6)  - I2S3 BCLK
+ *   Pin 12 (PI1)  - I2S BCLK
+ *   Pin 35 (PI2)  - I2S LRCK
+ *   Pin 38 (PI3)  - I2S DIN
+ *   Pin 40 (PI3)  - I2S DOUT
+ *
+ * The 40-pin GPIO header is hardware compatible with Raspberry Pi HATs.
+ * No rewiring required - just correct device tree configuration.
  */
 
 /dts-v1/;

@@ -7,15 +7,18 @@
  *
  * This overlay enables the WM8960 codec connected via:
  *   - I2C1 for control (address 0x1a)
- *   - I2S2/I2S3 for audio data (PH5-PH8 pins)
+ *   - I2S for audio data
  *
- * GPIO Pin Mapping (40-pin header):
+ * GPIO Pin Mapping (40-pin header - Raspberry Pi compatible):
  *   Pin 3  (PI8)  - I2C1 SDA
  *   Pin 5  (PI7)  - I2C1 SCL
- *   Pin 12 (PH6)  - I2S BCLK
- *   Pin 35 (PH7)  - I2S LRCK
- *   Pin 38 (PH8)  - I2S DOUT (to codec)
- *   Pin 40 (PH5)  - I2S DIN (from codec) / MCLK
+ *   Pin 12 (PI1)  - I2S BCLK (BCK)
+ *   Pin 35 (PI2)  - I2S LRCK (Frame Sync)
+ *   Pin 38 (PI3)  - I2S DIN (Data from codec)
+ *   Pin 40 (PI3)  - I2S DOUT (Data to codec)
+ *
+ * The 40-pin GPIO header is hardware compatible with Raspberry Pi HATs.
+ * No rewiring required - just correct device tree configuration.
  */
 
 /dts-v1/;
