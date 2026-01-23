@@ -21,7 +21,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 OVERLAY_DIR="${SCRIPT_DIR}/../overlays"
 CONFIG_DIR="${SCRIPT_DIR}/../configs"
 
-# Overlay names
+# Overlay names (alphanumeric and hyphens only - safe for sed patterns)
 OVERLAY_PRIMARY="sun50i-h618-wm8960-soundcard"
 OVERLAY_ALT="sun50i-h618-wm8960-soundcard-i2s3"
 

@@ -172,7 +172,7 @@ echo
 print_section "Recent Kernel Messages (WM8960)"
 DMESG_WM=$(dmesg 2>/dev/null | grep -i wm8960 | tail -5)
 if [ -n "$DMESG_WM" ]; then
-    echo "$DMESG_WM" | sed 's/^/  /'
+    printf '%s\n' "$DMESG_WM" | sed 's/^/  /'
 else
     check_warn "No WM8960 messages in dmesg"
 fi
