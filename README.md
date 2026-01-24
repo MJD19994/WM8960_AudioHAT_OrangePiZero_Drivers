@@ -144,14 +144,15 @@ pactl set-default-sink alsa_output.platform-sound-wm8960.stereo-fallback
 WM8960_AudioHAT_OrangePiZero_Drivers/
 ├── README.md                 # This file
 ├── overlays/
-│   ├── sun50i-h618-wm8960-soundcard.dts      # Device tree overlay (I2C0)
-│   └── sun50i-h618-wm8960-soundcard-i2s3.dts # Alternative overlay (I2C3)
+│   ├── sun50i-h618-wm8960-soundcard.dts      # Device tree overlay (I2S2)
+│   └── sun50i-h618-wm8960-soundcard-i2s3.dts # Alternative overlay (I2S3)
 ├── scripts/
-│   ├── install.sh           # Main installation script
-│   ├── uninstall.sh         # Uninstallation script
-│   └── wm8960-status.sh     # Status check utility
+│   ├── install.sh            # Main installation script
+│   ├── uninstall.sh          # Uninstallation script
+│   ├── build-wm8960-module.sh # Build WM8960 kernel module from source
+│   └── wm8960-status.sh      # Status check utility
 └── configs/
-    └── asound.conf          # ALSA configuration
+    └── asound.conf           # ALSA configuration
 ```
 
 ## Uninstallation
@@ -245,9 +246,34 @@ zcat /proc/config.gz 2>/dev/null | grep CONFIG_SND_SOC_WM8960
 
 If the WM8960 driver is missing from your kernel, you have these options:
 
-1. **Use a different kernel image** that includes the WM8960 driver
-2. **Request the Armbian team** to include `CONFIG_SND_SOC_WM8960=m` in their kernel config
-3. **Build a custom kernel** with the WM8960 driver enabled
+#### Option 1: Build the WM8960 module from source (RECOMMENDED)
+
+We provide a script that automatically downloads and compiles the WM8960 driver for your kernel:
+
+```bash
+# Build and install the WM8960 kernel module
+sudo bash scripts/build-wm8960-module.sh
+
+# Then reboot
+sudo reboot
+
+# After reboot, reinstall the overlay
+sudo bash scripts/install.sh
+sudo reboot
+```
+
+This script will:
+- Install kernel headers for your running kernel
+- Download the WM8960 driver source from the Linux kernel repository
+- Compile it as an out-of-tree kernel module
+- Install it to `/lib/modules/<kernel-version>/`
+- Configure it to load automatically at boot
+
+#### Option 2: Request kernel change from Armbian team
+
+Request the Armbian/DietPi team to include `CONFIG_SND_SOC_WM8960=m` in their kernel config for sunxi64.
+
+#### Option 3: Build a custom kernel
 
 To build a custom kernel with WM8960 support:
 ```bash

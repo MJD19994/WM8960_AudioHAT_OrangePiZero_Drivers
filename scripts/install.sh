@@ -277,12 +277,32 @@ load_audio_modules() {
     if [ "$wm8960_available" = false ]; then
         log_warn ""
         log_warn "  ════════════════════════════════════════════════════════"
-        log_warn "  ⚠️  WARNING: WM8960 kernel driver may not be available!"
+        log_warn "  ⚠️  WARNING: WM8960 kernel driver is NOT available!"
         log_warn "  ════════════════════════════════════════════════════════"
-        log_warn "  The Armbian/DietPi kernel may not include WM8960 support."
-        log_warn "  Check: zcat /proc/config.gz | grep WM8960"
-        log_warn "  If CONFIG_SND_SOC_WM8960 is not set, you need a custom kernel."
+        log_warn "  The Armbian/DietPi kernel does not include WM8960 support."
         log_warn ""
+        log_warn "  To fix this, you need to build the WM8960 module from source."
+        log_warn "  Run this command after installation completes:"
+        log_warn ""
+        log_warn "    sudo bash ${SCRIPT_DIR}/build-wm8960-module.sh"
+        log_warn ""
+        log_warn "  This will download and compile the WM8960 driver for your kernel."
+        log_warn "  See README.md for more details."
+        log_warn ""
+        
+        # Prompt user
+        echo ""
+        read -p "Would you like to build the WM8960 module now? [y/N] " -n 1 -r
+        echo ""
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            log_info "Building WM8960 kernel module..."
+            if [ -f "${SCRIPT_DIR}/build-wm8960-module.sh" ]; then
+                bash "${SCRIPT_DIR}/build-wm8960-module.sh"
+                wm8960_available=true
+            else
+                log_error "Build script not found: ${SCRIPT_DIR}/build-wm8960-module.sh"
+            fi
+        fi
     fi
     
     # Try to load required sound modules
