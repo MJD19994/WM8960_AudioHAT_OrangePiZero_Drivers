@@ -53,8 +53,8 @@ check_root() {
 check_existing_module() {
     log_info "Checking for existing WM8960 module..."
     
-    # Check if module already exists
-    if find /lib/modules/${KERNEL_VERSION} -name "snd-soc-wm8960.ko*" 2>/dev/null | grep -q .; then
+    # Check if module already exists - use head -1 for efficiency
+    if find /lib/modules/${KERNEL_VERSION} -name "snd-soc-wm8960.ko*" 2>/dev/null | head -1 | grep -q .; then
         log_info "WM8960 module already exists in kernel modules"
         modprobe snd_soc_wm8960 2>/dev/null && {
             log_info "Module loaded successfully!"
@@ -130,23 +130,39 @@ download_wm8960_source() {
     # URLs for WM8960 source files from kernel.org
     local base_url="https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/plain"
     
+    # Try multiple kernel versions in order of preference
+    local branches_to_try="${kernel_branch} v${kernel_major}.$((kernel_minor-1)) v6.6 v6.1 v5.15"
+    local downloaded=false
+    
     # Download wm8960.c
     log_info "Downloading wm8960.c..."
-    if ! curl -fsSL "${base_url}/sound/soc/codecs/wm8960.c?h=${kernel_branch}" -o wm8960.c; then
-        log_warn "Could not find exact kernel version, trying master branch..."
-        curl -fsSL "${base_url}/sound/soc/codecs/wm8960.c" -o wm8960.c || {
-            log_error "Failed to download wm8960.c"
-            exit 1
-        }
+    for branch in $branches_to_try; do
+        if curl -fsSL "${base_url}/sound/soc/codecs/wm8960.c?h=${branch}" -o wm8960.c 2>/dev/null; then
+            log_info "  Downloaded from branch: ${branch}"
+            downloaded=true
+            break
+        fi
+    done
+    
+    if [ "$downloaded" = false ]; then
+        log_error "Failed to download wm8960.c from any kernel branch"
+        exit 1
     fi
     
     # Download wm8960.h
+    downloaded=false
     log_info "Downloading wm8960.h..."
-    if ! curl -fsSL "${base_url}/sound/soc/codecs/wm8960.h?h=${kernel_branch}" -o wm8960.h; then
-        curl -fsSL "${base_url}/sound/soc/codecs/wm8960.h" -o wm8960.h || {
-            log_error "Failed to download wm8960.h"
-            exit 1
-        }
+    for branch in $branches_to_try; do
+        if curl -fsSL "${base_url}/sound/soc/codecs/wm8960.h?h=${branch}" -o wm8960.h 2>/dev/null; then
+            log_info "  Downloaded from branch: ${branch}"
+            downloaded=true
+            break
+        fi
+    done
+    
+    if [ "$downloaded" = false ]; then
+        log_error "Failed to download wm8960.h from any kernel branch"
+        exit 1
     fi
     
     log_info "Source files downloaded successfully"
@@ -255,9 +271,16 @@ load_module() {
 setup_module_autoload() {
     log_info "Configuring module autoload..."
     
-    # Add to modules list for auto-loading
+    # Add to modules list for auto-loading using a safe atomic approach
     if ! grep -q "^snd_soc_wm8960" /etc/modules 2>/dev/null; then
-        echo "snd_soc_wm8960" >> /etc/modules
+        # Use a temporary file and atomic move for safety
+        local tmp_file=$(mktemp)
+        if [ -f /etc/modules ]; then
+            cp /etc/modules "$tmp_file"
+        fi
+        echo "snd_soc_wm8960" >> "$tmp_file"
+        mv "$tmp_file" /etc/modules
+        chmod 644 /etc/modules
         log_info "Added snd_soc_wm8960 to /etc/modules"
     fi
 }

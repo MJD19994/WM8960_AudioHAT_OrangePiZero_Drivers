@@ -297,8 +297,17 @@ load_audio_modules() {
         if [[ $REPLY =~ ^[Yy]$ ]]; then
             log_info "Building WM8960 kernel module..."
             if [ -f "${SCRIPT_DIR}/build-wm8960-module.sh" ]; then
-                bash "${SCRIPT_DIR}/build-wm8960-module.sh"
-                wm8960_available=true
+                if bash "${SCRIPT_DIR}/build-wm8960-module.sh"; then
+                    # Verify the module was actually installed
+                    if find /lib/modules/$(uname -r) -name "snd-soc-wm8960.ko*" 2>/dev/null | head -1 | grep -q .; then
+                        wm8960_available=true
+                        log_info "WM8960 module build and installation successful"
+                    else
+                        log_warn "Build completed but module not found - check build logs"
+                    fi
+                else
+                    log_error "Module build failed - check output above"
+                fi
             else
                 log_error "Build script not found: ${SCRIPT_DIR}/build-wm8960-module.sh"
             fi
