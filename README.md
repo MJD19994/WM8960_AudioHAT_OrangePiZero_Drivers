@@ -394,11 +394,36 @@ The WM8960 is a low-power, high-quality stereo CODEC with integrated Class D spe
 
 ### Device Tree Overlay
 
-The overlay configures:
-- I2C1 bus with WM8960 at address 0x1a
-- I2S2 (or I2S3) interface for audio data
-- Simple-audio-card for ALSA integration
+The Allwinner H618 uses the **AHUB (Audio Hub)** architecture which differs from the simple I2S interface used on Raspberry Pi. We provide two overlay approaches:
+
+1. **Primary overlay** (`sun50i-h618-wm8960-soundcard.dts`):
+   - Uses standard I2S0 interface with simple-audio-card binding
+   - Targets I2S0 controller at `/soc@3000000/i2s@5095000`
+   - May work on some kernel versions
+
+2. **Alternative overlay** (`sun50i-h618-wm8960-soundcard-i2s3.dts`):
+   - Uses AHUB-based approach with `allwinner,sunxi-snd-mach` binding
+   - More compatible with Armbian kernel audio architecture
+   - Required if kernel patches for H616/H618 sound are applied
+
+The overlays configure:
+- I2C1 bus with WM8960 at address 0x1a (via i2c1-pi overlay)
+- I2S interface for audio data on PI0-PI4 pins
 - Audio routing for speakers, headphones, and microphones
+
+### Important Notes on H618 Audio
+
+**⚠️ Current Limitations:**
+- The Allwinner H618 has limited mainline kernel audio support
+- The kernel may require Armbian patches for proper I2S/AHUB functionality
+- The `snd_soc_wm8960` module is NOT included in default Armbian kernels
+- You may need to build the WM8960 module from source (see build-wm8960-module.sh)
+
+**Current Progress:**
+- ✅ WM8960 codec detected on I2C bus 3 at address 0x1a
+- ✅ snd_soc_wm8960 module can be built and loaded
+- ✅ snd_soc_simple_card module loaded
+- ⚠️ Sound card registration depends on proper overlay loading
 
 ## Contributing
 

@@ -7,7 +7,7 @@
  *
  * This overlay enables the WM8960 codec connected via:
  *   - I2C for control (address 0x1a on /dev/i2c-3)
- *   - I2S for audio data via AHUB I2S2
+ *   - I2S for audio data
  *
  * IMPORTANT: This overlay requires the base i2c1-pi overlay to be enabled first!
  *   In /boot/armbianEnv.txt, ensure:
@@ -31,46 +31,8 @@
 / {
 	compatible = "xunlong,orangepi-zero2w", "allwinner,sun50i-h618";
 
-	/* Fragment 0: Add WM8960 codec to I2C1 (which becomes /dev/i2c-3 with i2c1-pi overlay) */
+	/* Fragment 0: Add WM8960 codec to the root node */
 	fragment@0 {
-		target = <&i2c1>;
-		__overlay__ {
-			#address-cells = <1>;
-			#size-cells = <0>;
-			status = "okay";
-
-			wm8960: wm8960@1a {
-				compatible = "wlf,wm8960";
-				reg = <0x1a>;
-				#sound-dai-cells = <0>;
-				wlf,shared-lrclk;
-			};
-		};
-	};
-
-	/* Fragment 1: Define I2S2 pins for audio */
-	fragment@1 {
-		target = <&pio>;
-		__overlay__ {
-			i2s2_wm8960_pins: i2s2-wm8960-pins {
-				pins = "PI0", "PI1", "PI2", "PI3", "PI4";
-				function = "i2s2";
-			};
-		};
-	};
-
-	/* Fragment 2: Enable I2S2 interface with external pinctrl */
-	fragment@2 {
-		target-path = "/soc/i2s@5097000";
-		__overlay__ {
-			status = "okay";
-			pinctrl-names = "default";
-			pinctrl-0 = <&i2s2_wm8960_pins>;
-		};
-	};
-
-	/* Fragment 3: Create sound card using simple-audio-card */
-	fragment@3 {
 		target-path = "/";
 		__overlay__ {
 			wm8960_mclk: wm8960-mclk {
@@ -79,14 +41,60 @@
 				clock-frequency = <24000000>;
 				clock-output-names = "wm8960-mclk";
 			};
+		};
+	};
 
-			sound_wm8960: sound-wm8960 {
+	/* Fragment 1: Add WM8960 codec to I2C1 (which becomes /dev/i2c-3 with i2c1-pi overlay) */
+	fragment@1 {
+		target-path = "/soc@3000000/i2c@5002400";
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "okay";
+
+			wm8960_codec: wm8960@1a {
+				compatible = "wlf,wm8960";
+				reg = <0x1a>;
+				#sound-dai-cells = <0>;
+				wlf,shared-lrclk;
+				clocks = <&wm8960_mclk>;
+				clock-names = "mclk";
+			};
+		};
+	};
+
+	/* Fragment 2: Define I2S pins for audio on PI port */
+	fragment@2 {
+		target-path = "/soc@3000000/pinctrl@300b000";
+		__overlay__ {
+			i2s0_wm8960_pins: i2s0-wm8960-pins {
+				pins = "PI0", "PI1", "PI2", "PI3";
+				function = "i2s0";
+				drive-strength = <20>;
+				bias-disable;
+			};
+
+			i2s0_wm8960_dout: i2s0-wm8960-dout {
+				pins = "PI4";
+				function = "i2s0_dout0";
+				drive-strength = <20>;
+				bias-disable;
+			};
+		};
+	};
+
+	/* Fragment 3: Create sound card using simple-audio-card */
+	fragment@3 {
+		target-path = "/";
+		__overlay__ {
+			sound_wm8960: wm8960-sound {
 				compatible = "simple-audio-card";
 				simple-audio-card,name = "wm8960-soundcard";
 				simple-audio-card,format = "i2s";
 				simple-audio-card,mclk-fs = <256>;
-				simple-audio-card,bitclock-master = <&dailink_master>;
-				simple-audio-card,frame-master = <&dailink_master>;
+				simple-audio-card,bitclock-master = <&dailink_codec>;
+				simple-audio-card,frame-master = <&dailink_codec>;
+				status = "okay";
 
 				simple-audio-card,widgets =
 					"Microphone", "Mic Jack",
@@ -108,20 +116,25 @@
 					"RINPUT2", "Line In",
 					"LINPUT2", "Line In";
 
-				status = "okay";
-
 				simple-audio-card,cpu {
-					sound-dai = <&i2s2>;
-					dai-tdm-slot-num = <2>;
-					dai-tdm-slot-width = <16>;
+					sound-dai = <&i2s0>;
 				};
 
-				dailink_master: simple-audio-card,codec {
-					sound-dai = <&wm8960>;
-					clocks = <&wm8960_mclk>;
-					clock-names = "mclk";
+				dailink_codec: simple-audio-card,codec {
+					sound-dai = <&wm8960_codec>;
 				};
 			};
+		};
+	};
+
+	/* Fragment 4: Enable I2S0 for audio output */
+	fragment@4 {
+		target-path = "/soc@3000000/i2s@5095000";
+		__overlay__ {
+			#sound-dai-cells = <0>;
+			status = "okay";
+			pinctrl-names = "default";
+			pinctrl-0 = <&i2s0_wm8960_pins>, <&i2s0_wm8960_dout>;
 		};
 	};
 };
