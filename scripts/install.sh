@@ -242,6 +242,29 @@ enable_i2c() {
     done
 }
 
+load_audio_modules() {
+    log_info "Loading audio kernel modules..."
+    
+    # Try to load required sound modules
+    local modules="snd_soc_core snd_soc_wm8960 snd_soc_simple_card snd_soc_simple_card_utils"
+    
+    for mod in $modules; do
+        if modprobe "$mod" 2>/dev/null; then
+            log_info "  Loaded module: $mod"
+        else
+            log_warn "  Module $mod not available (may be built-in or not needed)"
+        fi
+    done
+    
+    # Add audio modules to /etc/modules for persistence
+    for mod in snd_soc_wm8960 snd_soc_simple_card; do
+        if ! grep -q "^${mod}" /etc/modules 2>/dev/null; then
+            echo "$mod" >> /etc/modules
+            log_info "Added $mod to /etc/modules"
+        fi
+    done
+}
+
 install_alsa_config() {
     log_info "Installing ALSA configuration..."
     
@@ -411,6 +434,7 @@ main() {
     install_overlays
     configure_boot
     enable_i2c
+    load_audio_modules
     install_alsa_config
     install_status_script
     print_summary

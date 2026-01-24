@@ -6,8 +6,8 @@
  * License: MIT
  *
  * This overlay enables the WM8960 codec connected via:
- *   - I2C for control (address 0x1a)
- *   - Internal audio codec for I2S audio
+ *   - I2C for control (address 0x1a on /dev/i2c-3)
+ *   - I2S for audio data via AHUB I2S2
  *
  * IMPORTANT: This overlay requires the base i2c1-pi overlay to be enabled first!
  *   In /boot/armbianEnv.txt, ensure:
@@ -16,6 +16,10 @@
  * GPIO Pin Mapping (40-pin header):
  *   Pin 3  (PI8)  - I2C SDA 
  *   Pin 5  (PI7)  - I2C SCL
+ *   Pin 12 (PI1)  - I2S BCLK
+ *   Pin 35 (PI2)  - I2S LRCK
+ *   Pin 38 (PI4)  - I2S DIN
+ *   Pin 40 (PI3)  - I2S DOUT
  *
  * After enabling i2c1-pi overlay, the I2C appears as /dev/i2c-3
  * The WM8960 should be detected at address 0x1a on that bus.
@@ -33,6 +37,7 @@
 		__overlay__ {
 			#address-cells = <1>;
 			#size-cells = <0>;
+			status = "okay";
 
 			wm8960: wm8960@1a {
 				compatible = "wlf,wm8960";
@@ -43,8 +48,29 @@
 		};
 	};
 
-	/* Fragment 1: Create sound card using simple-audio-card with internal codec as CPU DAI */
+	/* Fragment 1: Define I2S2 pins for audio */
 	fragment@1 {
+		target = <&pio>;
+		__overlay__ {
+			i2s2_wm8960_pins: i2s2-wm8960-pins {
+				pins = "PI0", "PI1", "PI2", "PI3", "PI4";
+				function = "i2s2";
+			};
+		};
+	};
+
+	/* Fragment 2: Enable I2S2 interface with external pinctrl */
+	fragment@2 {
+		target-path = "/soc/i2s@5097000";
+		__overlay__ {
+			status = "okay";
+			pinctrl-names = "default";
+			pinctrl-0 = <&i2s2_wm8960_pins>;
+		};
+	};
+
+	/* Fragment 3: Create sound card using simple-audio-card */
+	fragment@3 {
 		target-path = "/";
 		__overlay__ {
 			wm8960_mclk: wm8960-mclk {
@@ -85,7 +111,9 @@
 				status = "okay";
 
 				simple-audio-card,cpu {
-					sound-dai = <&codec>;
+					sound-dai = <&i2s2>;
+					dai-tdm-slot-num = <2>;
+					dai-tdm-slot-width = <16>;
 				};
 
 				dailink_master: simple-audio-card,codec {
