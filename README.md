@@ -135,14 +135,36 @@ pactl set-default-sink alsa_output.platform-sound-wm8960.stereo-fallback
 WM8960_AudioHAT_OrangePiZero_Drivers/
 ├── README.md                 # This file
 ├── overlays/
-│   ├── sun50i-h618-wm8960-soundcard.dts      # Device tree overlay (I2S2)
-│   └── sun50i-h618-wm8960-soundcard-i2s3.dts # Alternative overlay (I2S3)
+│   ├── sun50i-h618-wm8960-soundcard.dts      # Device tree overlay (I2C0)
+│   └── sun50i-h618-wm8960-soundcard-i2s3.dts # Alternative overlay (I2C3)
 ├── scripts/
 │   ├── install.sh           # Main installation script
+│   ├── uninstall.sh         # Uninstallation script
 │   └── wm8960-status.sh     # Status check utility
 └── configs/
     └── asound.conf          # ALSA configuration
 ```
+
+## Uninstallation
+
+To completely remove the WM8960 Audio HAT driver:
+
+```bash
+# Run the uninstall script
+sudo bash scripts/uninstall.sh
+
+# Or use the --force flag to skip confirmation
+sudo bash scripts/uninstall.sh --force
+
+# Reboot to apply changes
+sudo reboot
+```
+
+The uninstall script will:
+- Remove device tree overlay files
+- Remove overlay entries from boot configuration
+- Remove ALSA configuration (/etc/asound.conf)
+- Remove the wm8960-status utility
 
 ## Troubleshooting
 

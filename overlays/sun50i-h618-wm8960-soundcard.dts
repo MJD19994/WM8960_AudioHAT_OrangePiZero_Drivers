@@ -9,17 +9,16 @@
  *   - I2C for control (address 0x1a)
  *   - I2S for audio data
  *
- * GPIO Pin Mapping (40-pin header - Raspberry Pi compatible):
- *   Pin 3  - I2C SDA
- *   Pin 5  - I2C SCL
- *   Pin 12 - I2S BCLK
- *   Pin 35 - I2S LRCK (Frame Sync)
- *   Pin 38 - I2S DIN (Data from codec)
- *   Pin 40 - I2S DOUT (Data to codec)
+ * GPIO Pin Mapping (40-pin header):
+ *   Pin 3  (PI8)  - I2C SDA (I2C1)
+ *   Pin 5  (PI7)  - I2C SCL (I2C1)
+ *   Pin 12 (PI01) - I2S BCLK
+ *   Pin 35 (PI02) - I2S LRCK (Frame Sync)
+ *   Pin 38 (PI04) - I2S DIN (Data from codec)
+ *   Pin 40 (PI03) - I2S DOUT (Data to codec)
  *
- * Note: The I2C bus number may vary depending on kernel/OS configuration.
- * Check with 'ls /dev/i2c*' and 'i2cdetect -y X' to find which bus
- * has the WM8960 at address 0x1a.
+ * Note: The Orange Pi Zero 2W header pins 3/5 are mapped to I2C1 (SDA.1/SCL.1)
+ * which corresponds to PI8/PI7 on the H618 SoC.
  */
 
 /dts-v1/;
@@ -28,13 +27,27 @@
 / {
 	compatible = "xunlong,orangepi-zero2w", "allwinner,sun50i-h618";
 
-	/* Fragment 0: Enable I2C0 for WM8960 control */
+	/* Fragment 0: Define I2C1 pin configuration for PI7/PI8 */
 	fragment@0 {
-		target = <&i2c0>;
+		target = <&pio>;
+		__overlay__ {
+			i2c1_pi_pins: i2c1-pi-pins {
+				pins = "PI7", "PI8";
+				function = "i2c1";
+				bias-pull-up;
+			};
+		};
+	};
+
+	/* Fragment 1: Enable I2C1 for WM8960 control on pins PI7/PI8 */
+	fragment@1 {
+		target = <&i2c1>;
 		__overlay__ {
 			#address-cells = <1>;
 			#size-cells = <0>;
 			status = "okay";
+			pinctrl-names = "default";
+			pinctrl-0 = <&i2c1_pi_pins>;
 
 			wm8960: wm8960@1a {
 				compatible = "wlf,wm8960";
@@ -45,8 +58,8 @@
 		};
 	};
 
-	/* Fragment 1: Create sound card using simple-audio-card */
-	fragment@1 {
+	/* Fragment 2: Create sound card using simple-audio-card */
+	fragment@2 {
 		target-path = "/";
 		__overlay__ {
 			wm8960_mclk: wm8960-mclk {
