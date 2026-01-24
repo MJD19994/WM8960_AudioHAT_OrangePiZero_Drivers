@@ -1,79 +1,65 @@
 /*
  * Device Tree Overlay for WM8960 Audio Codec (ReSpeaker 2-Mic HAT / Keyestudio)
- * on Orange Pi Zero 2W (Allwinner H618) - Using I2S3 Interface
+ * on Orange Pi Zero 2W (Allwinner H618) - Using I2C3 Interface
  *
  * Copyright (C) 2025
  * License: MIT
  *
- * This overlay is an alternative using I2S3 interface which has better
- * support on some kernel versions.
+ * This is an alternative overlay that tries I2C3 instead of I2C0/I2C1.
+ * Use this if the WM8960 is not detected on the default I2C bus.
  *
- * GPIO Pin Mapping (40-pin header - Raspberry Pi compatible):
- *   Pin 3  (PI8)  - I2C1 SDA
- *   Pin 5  (PI7)  - I2C1 SCL
- *   Pin 12 (PI1)  - I2S BCLK
- *   Pin 35 (PI2)  - I2S LRCK
- *   Pin 38 (PI3)  - I2S DIN
- *   Pin 40 (PI3)  - I2S DOUT
+ * The Orange Pi Zero 2W has multiple I2C buses:
+ *   - I2C0: Pins PI5/PI6 (not on standard header)
+ *   - I2C3: Pins PH4/PH5 (accessible on some headers)
  *
- * The 40-pin GPIO header is hardware compatible with Raspberry Pi HATs.
- * No rewiring required - just correct device tree configuration.
+ * GPIO Pin Mapping (40-pin header):
+ *   Pin 3  - I2C SDA
+ *   Pin 5  - I2C SCL
  */
 
 /dts-v1/;
 /plugin/;
 
 / {
-	compatible = "allwinner,sun50i-h618";
+	compatible = "xunlong,orangepi-zero2w", "allwinner,sun50i-h618";
 
-	/* Fragment 0: Enable I2C1 and add WM8960 codec */
+	/* Fragment 0: Enable I2C3 with PH pins for WM8960 control */
 	fragment@0 {
-		target = <&i2c1>;
+		target = <&i2c3>;
 		__overlay__ {
 			#address-cells = <1>;
 			#size-cells = <0>;
 			status = "okay";
+			pinctrl-names = "default";
+			pinctrl-0 = <&i2c3_ph_pins>;
 
-			wm8960_i2s3: wm8960@1a {
+			wm8960_i2c3: wm8960@1a {
 				compatible = "wlf,wm8960";
 				reg = <0x1a>;
 				#sound-dai-cells = <0>;
-
-				/* Share LRCLK between ADC and DAC */
 				wlf,shared-lrclk;
 			};
 		};
 	};
 
-	/* Fragment 1: Enable I2S3 interface */
+	/* Fragment 1: Create sound card using simple-audio-card */
 	fragment@1 {
-		target = <&i2s3>;
-		__overlay__ {
-			status = "okay";
-			pinctrl-names = "default";
-			pinctrl-0 = <&i2s3_pins>;
-		};
-	};
-
-	/* Fragment 2: Create sound card node */
-	fragment@2 {
 		target-path = "/";
 		__overlay__ {
-			wm8960_mclk_i2s3: wm8960-mclk-i2s3 {
+			wm8960_mclk_i2c3: wm8960-mclk-i2c3 {
 				compatible = "fixed-clock";
 				#clock-cells = <0>;
 				clock-frequency = <24000000>;
 				clock-output-names = "wm8960-mclk";
 			};
 
-			sound_wm8960_i2s3: sound-wm8960-i2s3 {
+			sound_wm8960_i2c3: sound-wm8960-i2c3 {
 				compatible = "simple-audio-card";
 				simple-audio-card,name = "wm8960-soundcard";
 				simple-audio-card,format = "i2s";
 				simple-audio-card,mclk-fs = <256>;
-
-				simple-audio-card,bitclock-master = <&dailink_master_i2s3>;
-				simple-audio-card,frame-master = <&dailink_master_i2s3>;
+				simple-audio-card,bitclock-master = <&dailink_master_i2c3>;
+				simple-audio-card,frame-master = <&dailink_master_i2c3>;
 
 				simple-audio-card,widgets =
 					"Microphone", "Mic Jack",
@@ -98,12 +84,12 @@
 				status = "okay";
 
 				simple-audio-card,cpu {
-					sound-dai = <&i2s3>;
+					sound-dai = <&codec>;
 				};
 
-				dailink_master_i2s3: simple-audio-card,codec {
-					sound-dai = <&wm8960_i2s3>;
-					clocks = <&wm8960_mclk_i2s3>;
+				dailink_master_i2c3: simple-audio-card,codec {
+					sound-dai = <&wm8960_i2c3>;
+					clocks = <&wm8960_mclk_i2c3>;
 					clock-names = "mclk";
 				};
 			};

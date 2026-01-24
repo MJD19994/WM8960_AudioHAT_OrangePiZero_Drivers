@@ -146,40 +146,77 @@ WM8960_AudioHAT_OrangePiZero_Drivers/
 
 ## Troubleshooting
 
-### No sound card detected
+### Step 1: Check if WM8960 is detected on I2C
 
-1. **Check I2C connection**:
-   ```bash
-   sudo apt install i2c-tools
-   i2cdetect -y 1
-   ```
-   You should see `1a` at address 0x1a if the WM8960 is detected.
+The WM8960 codec should appear at address 0x1a on one of the I2C buses:
 
-2. **Verify overlay is loaded**:
-   ```bash
-   cat /proc/device-tree/sound*/compatible
-   # Should show "simple-audio-card"
-   ```
+```bash
+# Install i2c-tools if not present
+sudo apt install i2c-tools
 
-3. **Check kernel messages**:
-   ```bash
-   dmesg | grep -i wm8960
-   dmesg | grep -i i2s
-   ```
+# Scan all I2C buses for the WM8960 (address 0x1a)
+for bus in 0 1 2 3; do
+    echo "=== I2C Bus $bus ==="
+    i2cdetect -y $bus 2>/dev/null || echo "Bus $bus not available"
+done
+```
 
-### Try alternative I2S interface
+Look for `1a` in the output. If you see `UU` at 0x1a, the device is being used by a driver.
 
-If the primary overlay doesn't work, try the I2S3 version:
+### Step 2: If WM8960 is NOT detected
 
-1. Edit your boot configuration:
-   ```bash
-   # For DietPi/Armbian:
-   sudo nano /boot/armbianEnv.txt
-   # Change: overlays=sun50i-h618-wm8960-soundcard
-   # To:     overlays=sun50i-h618-wm8960-soundcard-i2s3
-   ```
+If the WM8960 doesn't appear on any I2C bus:
 
-2. Reboot and test again.
+1. **Check physical connections** - Ensure the HAT is properly seated on the GPIO header
+2. **Verify the HAT is powered** - Check that 3.3V is reaching the HAT
+3. **Try different I2C buses** - The HAT might be on a different bus than expected
+
+### Step 3: Check overlay loading
+
+```bash
+# Check if overlay is loaded
+ls /proc/device-tree/ | grep -i sound
+cat /proc/device-tree/sound*/compatible 2>/dev/null
+
+# Check for loading errors
+dmesg | grep -i overlay
+dmesg | grep -i wm8960
+dmesg | grep -i i2c
+```
+
+### Step 4: Verify kernel modules
+
+```bash
+# Check if required modules are loaded
+lsmod | grep -E "snd_soc|wm8960"
+
+# Try loading them manually
+sudo modprobe snd_soc_wm8960
+sudo modprobe snd_soc_simple_card
+```
+
+### Step 5: Try alternative overlay
+
+If the primary overlay doesn't work, try the I2C3 version:
+
+```bash
+# Edit boot configuration
+sudo nano /boot/armbianEnv.txt
+# Change: overlays=sun50i-h618-wm8960-soundcard
+# To:     overlays=sun50i-h618-wm8960-soundcard-i2s3
+sudo reboot
+```
+
+### ALSA Configuration Issues
+
+If you see errors like "dsnoop is not a compound":
+
+```bash
+# Remove the problematic ALSA config temporarily
+sudo mv /etc/asound.conf /etc/asound.conf.bak
+# Test audio without custom config
+aplay -l
+```
 
 ### Audio plays but no sound from speakers
 
