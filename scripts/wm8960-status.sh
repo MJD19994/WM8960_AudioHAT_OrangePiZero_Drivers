@@ -78,18 +78,43 @@ print_section "Kernel Modules"
 MODULES=("snd_soc_core" "snd_soc_wm8960" "snd_soc_simple_card")
 
 for mod in "${MODULES[@]}"; do
-    if lsmod | grep -q "${mod//-/_}"; then
+    mod_underscore="${mod//-/_}"
+    if lsmod | grep -q "${mod_underscore}"; then
         check_pass "Module ${mod} loaded"
     else
         # Check if built into kernel
+        BUILTIN=false
         if [ -f "/lib/modules/$(uname -r)/modules.builtin" ]; then
             if grep -q "${mod}" "/lib/modules/$(uname -r)/modules.builtin" 2>/dev/null; then
                 check_pass "Module ${mod} built-in"
-            else
-                check_warn "Module ${mod} not loaded"
+                BUILTIN=true
             fi
-        else
-            check_warn "Module ${mod} not loaded"
+        fi
+        
+        if [ "$BUILTIN" = false ]; then
+            # Check if module exists but isn't loaded
+            MOD_FILE=$(find /lib/modules/$(uname -r) -name "${mod_underscore}.ko*" 2>/dev/null | head -1)
+            if [ -n "$MOD_FILE" ]; then
+                check_warn "Module ${mod} available but not loaded"
+                echo "        Try: sudo modprobe ${mod_underscore}"
+            else
+                # Check kernel config if available
+                if [ -f /proc/config.gz ]; then
+                    CONFIG_NAME="CONFIG_SND_SOC_WM8960"
+                    if [ "$mod" = "snd_soc_wm8960" ]; then
+                        if zcat /proc/config.gz 2>/dev/null | grep -q "${CONFIG_NAME}="; then
+                            check_warn "Module ${mod} not loaded"
+                        else
+                            check_fail "Module ${mod} NOT in kernel (CONFIG_SND_SOC_WM8960 is not set)"
+                            echo "        Your kernel needs to be rebuilt with CONFIG_SND_SOC_WM8960=m"
+                        fi
+                    else
+                        check_warn "Module ${mod} not loaded"
+                    fi
+                else
+                    check_warn "Module ${mod} not loaded"
+                fi
+            fi
         fi
     fi
 done

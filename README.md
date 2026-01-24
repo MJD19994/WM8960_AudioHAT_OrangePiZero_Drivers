@@ -226,7 +226,38 @@ sudo modprobe snd_soc_wm8960
 sudo modprobe snd_soc_simple_card
 ```
 
-### Step 5: Try alternative overlay
+### Step 5: Check if snd_soc_wm8960 is available in your kernel
+
+**⚠️ IMPORTANT**: The Armbian/DietPi kernel for sunxi64 may NOT include the WM8960 driver by default!
+
+```bash
+# Check if the module exists
+find /lib/modules/$(uname -r) -name "*wm8960*"
+
+# Check if it's built into the kernel
+zcat /proc/config.gz 2>/dev/null | grep CONFIG_SND_SOC_WM8960
+
+# Expected output for working setup:
+# CONFIG_SND_SOC_WM8960=m   (module - can be loaded)
+# CONFIG_SND_SOC_WM8960=y   (built-in - always available)
+# If you see "is not set" or nothing, the driver is NOT available
+```
+
+If the WM8960 driver is missing from your kernel, you have these options:
+
+1. **Use a different kernel image** that includes the WM8960 driver
+2. **Request the Armbian team** to include `CONFIG_SND_SOC_WM8960=m` in their kernel config
+3. **Build a custom kernel** with the WM8960 driver enabled
+
+To build a custom kernel with WM8960 support:
+```bash
+# In kernel menuconfig:
+# Device Drivers → Sound card support → ALSA → 
+#   CODEC drivers → Wolfson Microelectronics WM8960 CODEC
+# Set to <M> for module or <*> for built-in
+```
+
+### Step 6: Try alternative overlay
 
 If the primary overlay doesn't work, try the I2C3 version:
 

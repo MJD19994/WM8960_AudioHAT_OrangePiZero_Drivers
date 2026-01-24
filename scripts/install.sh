@@ -245,6 +245,46 @@ enable_i2c() {
 load_audio_modules() {
     log_info "Loading audio kernel modules..."
     
+    # First, check if wm8960 driver is available in kernel
+    local wm8960_available=false
+    
+    # Check if module file exists
+    if find /lib/modules/$(uname -r) -name "*wm8960*" 2>/dev/null | grep -q .; then
+        wm8960_available=true
+        log_info "  WM8960 kernel module found"
+    fi
+    
+    # Check if built into kernel
+    if [ -f "/lib/modules/$(uname -r)/modules.builtin" ]; then
+        if grep -q "wm8960" "/lib/modules/$(uname -r)/modules.builtin" 2>/dev/null; then
+            wm8960_available=true
+            log_info "  WM8960 driver is built into kernel"
+        fi
+    fi
+    
+    # Check kernel config if available
+    if [ -f /proc/config.gz ]; then
+        if zcat /proc/config.gz 2>/dev/null | grep -q "CONFIG_SND_SOC_WM8960=[my]"; then
+            wm8960_available=true
+        elif zcat /proc/config.gz 2>/dev/null | grep -q "CONFIG_SND_SOC_WM8960 is not set"; then
+            log_warn "  ⚠️  CONFIG_SND_SOC_WM8960 is NOT enabled in your kernel!"
+            log_warn "      The WM8960 driver is not available."
+            log_warn "      You may need a custom kernel with CONFIG_SND_SOC_WM8960=m"
+            wm8960_available=false
+        fi
+    fi
+    
+    if [ "$wm8960_available" = false ]; then
+        log_warn ""
+        log_warn "  ════════════════════════════════════════════════════════"
+        log_warn "  ⚠️  WARNING: WM8960 kernel driver may not be available!"
+        log_warn "  ════════════════════════════════════════════════════════"
+        log_warn "  The Armbian/DietPi kernel may not include WM8960 support."
+        log_warn "  Check: zcat /proc/config.gz | grep WM8960"
+        log_warn "  If CONFIG_SND_SOC_WM8960 is not set, you need a custom kernel."
+        log_warn ""
+    fi
+    
     # Try to load required sound modules
     local modules="snd_soc_core snd_soc_wm8960 snd_soc_simple_card snd_soc_simple_card_utils"
     
@@ -252,7 +292,7 @@ load_audio_modules() {
         if modprobe "$mod" 2>/dev/null; then
             log_info "  Loaded module: $mod"
         else
-            log_warn "  Module $mod not available (may be built-in or not needed)"
+            log_warn "  Module $mod not available (may be built-in or not in kernel)"
         fi
     done
     
