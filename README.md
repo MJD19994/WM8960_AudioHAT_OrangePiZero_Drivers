@@ -75,7 +75,16 @@ The WM8960 Audio HAT uses I2C for control and I2S for audio data. **The 40-pin G
 | 3.3V       | Pin 1        | 3.3V         | 3.3V              | ✅ Yes     |
 | GND        | Pin 6, 9     | GND          | GND               | ✅ Yes     |
 
-### Installation
+### I2C Bus Information
+
+On Orange Pi Zero 2W with Armbian/DietPi:
+- **Pins 3/5 (I2C)** require the Armbian `i2c1-pi` overlay to be enabled
+- After enabling `i2c1-pi`, the I2C bus appears as `/dev/i2c-3`
+- The WM8960 codec should be detected at address **0x1a** on that bus
+
+The install script automatically adds both `i2c1-pi` and our WM8960 overlay to the boot configuration.
+
+### Hardware Connection
 
 Simply plug the ReSpeaker 2-Mic HAT directly onto the Orange Pi Zero 2W's 40-pin header - no additional wiring needed. The device tree overlay handles the GPIO pin mapping to the correct peripheral functions.
 

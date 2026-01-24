@@ -169,7 +169,13 @@ configure_boot() {
         dietpi|orangepi|armbian)
             # These use similar syntax
             if grep -q "^overlays=" "${CONFIG_FILE}"; then
-                # Append to existing overlays line
+                # First, ensure i2c1-pi is enabled (required for I2C on pins 3/5)
+                if ! grep -q "i2c1-pi" "${CONFIG_FILE}"; then
+                    sed -i "/^overlays=/ s/$/ i2c1-pi/" "${CONFIG_FILE}"
+                    log_info "Added i2c1-pi overlay for I2C support on pins 3/5"
+                fi
+                
+                # Then add our WM8960 overlay
                 if ! grep -q "${OVERLAY_NAME}" "${CONFIG_FILE}"; then
                     sed -i "/^overlays=/ s/$/ ${OVERLAY_NAME}/" "${CONFIG_FILE}"
                     log_info "Added ${OVERLAY_NAME} to existing overlays list"
@@ -177,13 +183,17 @@ configure_boot() {
                     log_info "Overlay ${OVERLAY_NAME} already configured"
                 fi
             elif grep -q "^user_overlays=" "${CONFIG_FILE}"; then
+                if ! grep -q "i2c1-pi" "${CONFIG_FILE}"; then
+                    sed -i "/^user_overlays=/ s/$/ i2c1-pi/" "${CONFIG_FILE}"
+                    log_info "Added i2c1-pi overlay for I2C support"
+                fi
                 if ! grep -q "${OVERLAY_NAME}" "${CONFIG_FILE}"; then
                     sed -i "/^user_overlays=/ s/$/ ${OVERLAY_NAME}/" "${CONFIG_FILE}"
                     log_info "Added ${OVERLAY_NAME} to user_overlays list"
                 fi
             else
-                echo "overlays=${OVERLAY_NAME}" >> "${CONFIG_FILE}"
-                log_info "Created overlays entry with ${OVERLAY_NAME}"
+                echo "overlays=i2c1-pi ${OVERLAY_NAME}" >> "${CONFIG_FILE}"
+                log_info "Created overlays entry with i2c1-pi and ${OVERLAY_NAME}"
             fi
             
             # Ensure overlay_prefix is set for H618
@@ -205,7 +215,7 @@ configure_boot() {
             
         *)
             log_warn "Unknown boot environment. Manual configuration required."
-            log_warn "Add '${OVERLAY_NAME}' to your boot configuration overlays"
+            log_warn "Add 'i2c1-pi ${OVERLAY_NAME}' to your boot configuration overlays"
             ;;
     esac
 }
@@ -215,12 +225,21 @@ enable_i2c() {
     
     # Load I2C kernel modules
     modprobe i2c-dev 2>/dev/null || true
+    modprobe i2c-sunxi 2>/dev/null || true
     
     # Add to modules file for persistence
     if ! grep -q "^i2c-dev" /etc/modules 2>/dev/null; then
         echo "i2c-dev" >> /etc/modules
         log_info "Added i2c-dev to /etc/modules"
     fi
+    
+    # Check for available I2C buses after overlay would be loaded
+    log_info "Checking I2C bus availability..."
+    for bus in 0 1 2 3 4 5; do
+        if [ -e "/dev/i2c-${bus}" ]; then
+            log_info "  I2C bus ${bus} available (/dev/i2c-${bus})"
+        fi
+    done
 }
 
 install_alsa_config() {
