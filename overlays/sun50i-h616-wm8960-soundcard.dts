@@ -96,6 +96,8 @@
 				soundcard-mach,format = "i2s";
 				soundcard-mach,frame-master = <&wm8960_codec>;
 				soundcard-mach,bitclock-master = <&wm8960_codec>;
+				soundcard-mach,slot-num = <2>;
+				soundcard-mach,slot-width = <32>;
 				status = "okay";
 
 				soundcard-mach,cpu {

@@ -205,9 +205,26 @@ If overlay loads but sound card doesn't register, may need to check:
   - Change properties from `simple-audio-card,*` to `soundcard-mach,*`
 - Next action: Update both overlays to use sunxi-snd-mach driver
 
-### Test 9 (Pending):
-- **Recompile both overlays with sunxi-snd-mach compatible**
-- Expected: sunxi machine driver loads, sound card registers
+### Test 9 (2026-01-27 03:31):
+- Result: ⚠️ **PARTIAL SUCCESS - Driver loads but probe deferred**
+- What changed: Recompiled overlays with sunxi-snd-mach compatible
+- Boot config: Both overlays loaded (wm8960-soundcard-i2s3 AND sun50i-h616-wm8960-soundcard)
+- Successes:
+  - ✅ `snd_soc_sunxi_machine` module loaded!
+  - ✅ No more "asoc-simple-card: parse error"
+  - ✅ Compatible string correct: `allwinner,sunxi-snd-mach`
+  - ✅ Device tree has soundcard-mach,cpu and soundcard-mach,codec nodes
+- New issue:
+  - ✗ **deferred probe pending: (reason unknown)**
+  - Root cause found: Missing required properties!
+  - Comparing to working ahub1_mach, our overlay is missing:
+    - `soundcard-mach,slot-num` (should be 2 for stereo)
+    - `soundcard-mach,slot-width` (should be 32 for 32-bit slots)
+- Next action: Add missing slot properties and use only ONE overlay
+
+### Test 10 (Pending):
+- **Add slot-num and slot-width properties, use single overlay**
+- Expected: Sound card registers successfully
 
 ---
 
