@@ -70,7 +70,7 @@ The WM8960 Audio HAT uses I2C for control and I2S for audio data. **The 40-pin G
 | I2C SCL    | Pin 5        | GPIO3        | PI7               | ✅ Yes     |
 | I2S BCLK   | Pin 12       | GPIO18       | PI1               | ✅ Yes     |
 | I2S LRCK   | Pin 35       | GPIO19       | PI2               | ✅ Yes     |
-| I2S DIN    | Pin 38       | GPIO20       | PI3               | ✅ Yes     |
+| I2S DIN    | Pin 38       | GPIO20       | PI4               | ✅ Yes     |
 | I2S DOUT   | Pin 40       | GPIO21       | PI3               | ✅ Yes     |
 | 3.3V       | Pin 1        | 3.3V         | 3.3V              | ✅ Yes     |
 | GND        | Pin 6, 9     | GND          | GND               | ✅ Yes     |
