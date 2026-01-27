@@ -349,10 +349,64 @@ If overlay loads but sound card doesn't register, may need to check:
   - Our tdm_num=0 tries to find ahub-i2s0@5097000 for regmap → doesn't exist → error!
   - Pinctrl functions use "i2s0" naming (physical pins), but AHUB software needs tdm 1/2/3
 
-### Test 16 (Current):
+### Test 16 (2026-01-24):
 - **Change:** Change `tdm_num = <0>` to `tdm_num = <1>` to use ahub-i2s1 hardware node
 - **Root Cause:** Pin functions (i2s0) ≠ AHUB TDM interface numbers (1/2/3)
-- **Expected:** AHUB driver finds ahub-i2s1, gets regmap, probe succeeds! 🎵
+- **Result:** ⚠️ Partial - AHUB hardware detected, but driver module missing
+- **Findings:** 
+  - AHUB device created at `/sys/bus/platform/devices/5097000.ahub-i2s1`
+  - Compatible string: `allwinner,sunxi-ahub-daudio`
+  - Status: "deferred probe pending" - no driver to bind
+  - All other components working perfectly (I2C, WM8960, pins, overlay)
+
+### Test 17 (2026-01-26):
+- **Attempt:** Try mainline `sun4i-i2s` driver with simple-audio-card overlay
+- **Result:** ✗ Failed - H618 has no standard I2S nodes
+- **Verification:** Decompiled DTB shows only `ahub-i2s1/2/3@5097000` nodes
+- **Conclusion:** H618 is AHUB-only architecture - simple overlay approach impossible
+
+---
+
+## ROOT CAUSE IDENTIFIED (2026-01-27)
+
+### Investigation Complete ✅
+
+**Problem:** DietPi kernel missing AHUB DAUDIO I2S controller driver
+
+**Evidence:**
+```bash
+# Kernel config check
+CONFIG_SND_SOC_SUNXI_AHUB_DAM=m      ✅ Compiled
+CONFIG_SND_SOC_SUNXI_AHUB=m          ✅ Compiled  
+CONFIG_SND_SOC_SUNXI_MACH=m          ✅ Compiled
+CONFIG_SND_SOC_SUNXI_AHUB_DAUDIO     ❌ NOT CONFIGURED
+
+# Module check
+/lib/modules/.../sunxi_v2/snd_soc_sunxi_ahub.ko         ✅ Present
+/lib/modules/.../sunxi_v2/snd_soc_sunxi_ahub_dam.ko     ✅ Present
+/lib/modules/.../sunxi_v2/snd_soc_sunxi_machine.ko      ✅ Present
+/lib/modules/.../sunxi_v2/snd_soc_sunxi_ahub_daudio.ko  ❌ MISSING
+
+# H618 DTB verification
+ahub-i2s1@5097000  ✅ Exists
+ahub-i2s2@5097000  ✅ Exists
+ahub-i2s3@5097000  ✅ Exists
+i2s0@...           ❌ Does not exist (H618 is AHUB-only)
+```
+
+**Status:** Hardware fully configured and ready. **Only missing:** kernel driver module.
+
+**Solution:** Request DietPi enable `CONFIG_SND_SOC_SUNXI_AHUB_DAUDIO=m` in kernel build.
+
+**Documentation:**
+- Technical report: [DIETPI_ISSUE_REPORT.md](DIETPI_ISSUE_REPORT.md)
+- Investigation details: [ARMBIAN_INVESTIGATION.md](ARMBIAN_INVESTIGATION.md)
+- Repository: https://github.com/MJD19994/WM8960_AudioHAT_OrangePiZero_Drivers
+
+**Next Steps:**
+1. Submit issue to DietPi: https://github.com/MichaIng/DietPi/issues
+2. Test Armbian (may already have driver enabled)
+3. Build module manually (if kernel sources available)
 
 ---
 
