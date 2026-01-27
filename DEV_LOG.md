@@ -222,9 +222,22 @@ If overlay loads but sound card doesn't register, may need to check:
     - `soundcard-mach,slot-width` (should be 32 for 32-bit slots)
 - Next action: Add missing slot properties and use only ONE overlay
 
-### Test 10 (Pending):
-- **Add slot-num and slot-width properties, use single overlay**
-- Expected: Sound card registers successfully
+### Test 10 (2026-01-27 04:00):
+- Result: ✗ **OVERLAY NOT LOADING - Prefix duplication bug reintroduced!**
+- What changed: Used single overlay, added slot properties
+- Boot config said: `overlays=i2c1-pi sun50i-h616-wm8960-soundcard`
+- Root cause: Install script was using FULL filename in boot config
+- With `overlay_prefix=sun50i-h616`, system looked for:
+  - `sun50i-h616-sun50i-h616-wm8960-soundcard.dtbo` ✗
+  - Instead of: `sun50i-h616-wm8960-soundcard.dtbo` ✓
+- **This is the SAME bug from Test 5!**
+- Fix: Install script now uses SHORT name (without prefix) for boot config
+  - Boot config: `overlays=i2c1-pi wm8960-soundcard`
+  - Bootloader adds prefix automatically: `sun50i-h616-wm8960-soundcard.dtbo`
+
+### Test 11 (Pending):
+- **Pull updated install script and reinstall**
+- Expected: Overlay loads with short name, slot properties work
 
 ---
 

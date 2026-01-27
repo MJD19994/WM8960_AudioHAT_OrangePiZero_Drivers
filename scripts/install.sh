@@ -26,6 +26,10 @@ CONFIG_DIR="${SCRIPT_DIR}/../configs"
 OVERLAY_PRIMARY="sun50i-h616-wm8960-soundcard"
 OVERLAY_ALT="sun50i-h616-wm8960-soundcard-i2s3"
 
+# Short names for boot config (without prefix - bootloader adds it automatically)
+OVERLAY_SHORT_NAME="wm8960-soundcard"
+OVERLAY_ALT_SHORT_NAME="wm8960-soundcard-i2s3"
+
 print_banner() {
     echo -e "${BLUE}"
     echo "╔════════════════════════════════════════════════════════════╗"
@@ -163,8 +167,10 @@ install_overlays() {
 configure_boot() {
     log_info "Configuring boot parameters..."
     
-    # Use the primary overlay by default
+    # Use the primary overlay file (full name for file operations)
     OVERLAY_NAME="${OVERLAY_PRIMARY}"
+    # Use short name for boot config (bootloader adds prefix automatically)
+    OVERLAY_BOOT_NAME="${OVERLAY_SHORT_NAME}"
     
     case "${BOOT_ENV}" in
         dietpi|orangepi|armbian)
@@ -176,25 +182,25 @@ configure_boot() {
                     log_info "Added i2c1-pi overlay for I2C support on pins 3/5"
                 fi
                 
-                # Then add our WM8960 overlay
-                if ! grep -q "${OVERLAY_NAME}" "${CONFIG_FILE}"; then
-                    sed -i "/^overlays=/ s/$/ ${OVERLAY_NAME}/" "${CONFIG_FILE}"
-                    log_info "Added ${OVERLAY_NAME} to existing overlays list"
+                # Then add our WM8960 overlay (use short name - prefix is auto-added)
+                if ! grep -q "${OVERLAY_BOOT_NAME}" "${CONFIG_FILE}"; then
+                    sed -i "/^overlays=/ s/$/ ${OVERLAY_BOOT_NAME}/" "${CONFIG_FILE}"
+                    log_info "Added ${OVERLAY_BOOT_NAME} to existing overlays list"
                 else
-                    log_info "Overlay ${OVERLAY_NAME} already configured"
+                    log_info "Overlay ${OVERLAY_BOOT_NAME} already configured"
                 fi
             elif grep -q "^user_overlays=" "${CONFIG_FILE}"; then
                 if ! grep -q "i2c1-pi" "${CONFIG_FILE}"; then
                     sed -i "/^user_overlays=/ s/$/ i2c1-pi/" "${CONFIG_FILE}"
                     log_info "Added i2c1-pi overlay for I2C support"
                 fi
-                if ! grep -q "${OVERLAY_NAME}" "${CONFIG_FILE}"; then
-                    sed -i "/^user_overlays=/ s/$/ ${OVERLAY_NAME}/" "${CONFIG_FILE}"
-                    log_info "Added ${OVERLAY_NAME} to user_overlays list"
+                if ! grep -q "${OVERLAY_BOOT_NAME}" "${CONFIG_FILE}"; then
+                    sed -i "/^user_overlays=/ s/$/ ${OVERLAY_BOOT_NAME}/" "${CONFIG_FILE}"
+                    log_info "Added ${OVERLAY_BOOT_NAME} to user_overlays list"
                 fi
             else
-                echo "overlays=i2c1-pi ${OVERLAY_NAME}" >> "${CONFIG_FILE}"
-                log_info "Created overlays entry with i2c1-pi and ${OVERLAY_NAME}"
+                echo "overlays=i2c1-pi ${OVERLAY_BOOT_NAME}" >> "${CONFIG_FILE}"
+                log_info "Created overlays entry with i2c1-pi and ${OVERLAY_BOOT_NAME}"
             fi
             
             # Check overlay_prefix - H618 is treated as H616 by bootloader
