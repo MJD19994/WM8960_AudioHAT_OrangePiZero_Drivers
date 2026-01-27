@@ -32,7 +32,7 @@
 /plugin/;
 
 / {
-	compatible = "xunlong,orangepi-zero2w", "allwinner,sun50i-h618";
+	compatible = "xunlong,orangepi-zero2w", "allwinner,sun50i-h616";
 
 	/* Fragment 0: Add fixed MCLK clock for WM8960 */
 	fragment@0 {
