@@ -266,9 +266,21 @@ If overlay loads but sound card doesn't register, may need to check:
   - Changed AHUB TDM: `tdm_num = 2` → `tdm_num = 0` (for I2S0)
   - Updated pinctrl references in AHUB platform device
 
-### Test 13 (Pending):
-- **Recompile overlay with I2S0 configuration**
-- Expected: Pins claim successfully, AHUB binds, sound card registers!
+### Test 13 (2026-01-27 04:40):
+- Result: ⚠️ **PI3 function mismatch - needs specific dout function!**
+- Error: `unsupported function i2s0 on pin PI3`
+- **Reason:** PI3 is NOT in the generic `i2s0` group
+  - Pinmux shows: `i2s0, groups = [ PI0 PI1 PI2 ]` (PI3 NOT included!)
+  - PI3 has dedicated function: `i2s0_dout0, groups = [ PI3 ]`
+- **Fix Applied:** Split pinctrl into three groups:
+  - `i2s0-wm8960-pins`: PI0, PI1, PI2 → `i2s0`
+  - `i2s0-wm8960-dout`: PI3 → `i2s0_dout0`
+  - `i2s0-wm8960-din`: PI4 → `i2s0_din0`
+  - Updated AHUB pinctrl-0 to reference all three groups
+
+### Test 14 (Pending):
+- **Recompile with split pinctrl groups**
+- Expected: All pins claim successfully, AHUB binds, SOUND CARD REGISTERS! 🎉
 
 ---
 

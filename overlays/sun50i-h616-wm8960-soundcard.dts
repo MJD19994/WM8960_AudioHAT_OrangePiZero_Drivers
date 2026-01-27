@@ -71,8 +71,15 @@
 		target-path = "/soc/pinctrl@300b000";
 		__overlay__ {
 			i2s0_wm8960_pins: i2s0-wm8960-pins {
-				pins = "PI0", "PI1", "PI2", "PI3";
+				pins = "PI0", "PI1", "PI2";
 				function = "i2s0";
+				drive-strength = <20>;
+				bias-disable;
+			};
+
+			i2s0_wm8960_dout: i2s0-wm8960-dout {
+				pins = "PI3";
+				function = "i2s0_dout0";
 				drive-strength = <20>;
 				bias-disable;
 			};
@@ -103,7 +110,7 @@
 				rx_fifo_size = <128>;
 				status = "okay";
 				pinctrl-names = "default";
-				pinctrl-0 = <&i2s0_wm8960_pins>, <&i2s0_wm8960_din>;
+				pinctrl-0 = <&i2s0_wm8960_pins>, <&i2s0_wm8960_dout>, <&i2s0_wm8960_din>;
 			};
 		};
 	};
