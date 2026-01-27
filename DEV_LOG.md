@@ -298,14 +298,23 @@ If overlay loads but sound card doesn't register, may need to check:
   ahub1_plat: tdm_num=1 (I2S1), DMA request 4
   ```
 
-### Test 15 (Current):
+### Test 15: DMA Properties Added (Still Failing)
 - **Change:** Add DMA properties to wm8960-ahub-plat
   ```dts
   dmas = <0x1c 0x04>, <0x1c 0x04>;
   dma-names = "tx", "rx";
   ```
-- **Note:** Using same DMA request (4) as ahub1_plat. May need adjustment for I2S0.
-- **Expected:** AHUB probe succeeds, sound card registers! 🔊
+- **Result:** Still failing with same error -22, regmap invalid
+- **Investigation:** Compared base DT nodes, discovered critical architecture issue:
+  - AHUB hardware nodes: ahub-i2s1 (tdm=1), ahub-i2s2 (tdm=2), ahub-i2s3 (tdm=3)
+  - **NO ahub-i2s0 node exists in H616/H618 AHUB!**
+  - Our tdm_num=0 tries to find ahub-i2s0@5097000 for regmap → doesn't exist → error!
+  - Pinctrl functions use "i2s0" naming (physical pins), but AHUB software needs tdm 1/2/3
+
+### Test 16 (Current):
+- **Change:** Change `tdm_num = <0>` to `tdm_num = <1>` to use ahub-i2s1 hardware node
+- **Root Cause:** Pin functions (i2s0) ≠ AHUB TDM interface numbers (1/2/3)
+- **Expected:** AHUB driver finds ahub-i2s1, gets regmap, probe succeeds! 🎵
 
 ---
 

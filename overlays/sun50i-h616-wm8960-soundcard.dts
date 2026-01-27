@@ -101,7 +101,7 @@
 				compatible = "allwinner,sunxi-snd-plat-ahub";
 				#sound-dai-cells = <0>;
 				apb_num = <1>;
-				tdm_num = <0>;  /* Use I2S0 - PI pins map to I2S0 */
+				tdm_num = <1>;  /* Use ahub-i2s1 (no ahub-i2s0 hardware node exists) */
 				tx_pin = <0>;
 				rx_pin = <0>;
 				playback_cma = <128>;
