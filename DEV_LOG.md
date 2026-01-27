@@ -1,50 +1,88 @@
 # WM8960 Driver Development Log
 
-## Current Status: TEST 9 - Recompile with sunxi-snd-mach (In Progress)
+## Current Status: TEST 17 - Switch to Mainline sun4i-i2s Driver
 
 ---
 
-## Latest Finding (2026-01-27 - Test 9)
+## CRITICAL DISCOVERY (2026-01-27 - Test 16-17)
 
-**Problem**: Overlays still have old simple-audio-card compatible loaded  
-**Root Cause**: Source files were updated but overlays not recompiled yet  
-- Source files now have `allwinner,sunxi-snd-mach` ✓
-- Compiled .dtbo files still have old simple-audio-card ✗
-- Need to recompile the overlays
+**ROOT CAUSE IDENTIFIED**: Missing AHUB DAUDIO driver in kernel
 
-**Status**: Created recompile script, **READY TO RECOMPILE**
+### What We Found:
+1. The `ahub-i2s1@5097000` device exists and is properly configured
+2. It has compatible string: `allwinner,sunxi-ahub-daudio`  
+3. **NO kernel driver exists for this compatible string**
+4. Only 3 AHUB modules exist:
+   - `snd_soc_sunxi_ahub.ko` (platform wrapper)
+   - `snd_soc_sunxi_ahub_dam.ko` (DAM controller)
+   - `snd_soc_sunxi_machine.ko` (machine driver)
+   - **MISSING**: `snd_soc_sunxi_ahub_daudio.ko` (I2S hardware driver)
+
+### The Problem:
+```bash
+# Device exists but no driver can bind to it
+$ ls /sys/bus/platform/devices/5097000.ahub-i2s1/
+# NO driver/ symlink - device is orphaned
+
+$ cat /sys/bus/platform/devices/5097000.ahub-i2s1/modalias
+of:Nahub-i2s1T(null)Callwinner,sunxi-ahub-daudio
+# This modalias has NO matching driver in the system
+
+$ find /lib/modules/$(uname -r) -name "*daudio*"
+# (empty) - driver doesn't exist
+```
+
+### Solution: Use Mainline sun4i-i2s Driver
+Since the vendor AHUB DAUDIO driver is missing, we're switching to the **mainline** approach:
+- Driver: `sun4i-i2s.ko` (exists in kernel: `/lib/modules/.../sunxi/sun4i-i2s.ko`)
+- Card: `simple-audio-card` (proven mainline pattern)
+- Architecture: Simple I2S (not vendor AHUB)
+
+**Status**: Created new overlay using mainline driver - **READY TO TEST**
 
 ---
 
 ## Next Steps
 
-### RECOMPILE AND TEST:
+### TEST THE MAINLINE DRIVER:
 ```bash
-# Make script executable
-chmod +x scripts/recompile-overlays.sh
-
-# Recompile and install overlays
+# Recompile all overlays (includes new simple version)
 sudo bash scripts/recompile-overlays.sh
 
-# Reboot to load new overlays
+# Edit boot config to use the simple overlay
+sudo nano /boot/orangepiEnv.txt
+# Change line to: overlays=i2c1-pi wm8960-simple
+
+# Reboot to test
 sudo reboot
 ```
 
-### After reboot:
+### After reboot - Check if it worked:
 ```bash
-# Check if sunxi machine driver loaded
-lsmod | grep sunxi
-cat /sys/firmware/devicetree/base/wm8960-sound-ahub/compatible
+# Check if sun4i-i2s driver loaded
+lsmod | grep sun4i
 
-# Run diagnostics
-sudo bash scripts/diagnose-h618.sh
+# Check sound card
 aplay -l
+
+# Look for simple-audio-card registration
+dmesg | grep -i "simple\|audio\|wm8960\|i2s"
+
+# Run full diagnostics
+sudo bash scripts/diagnose-h618.sh
 ```
 
 ### Expected Outcome:
-- sunxi_machine driver should load automatically
-- Sound card should register successfully
-- `aplay -l` should show wm8960-soundcard device
+- `sun4i-i2s` driver loads and binds to i2s0 device
+- `simple-audio-card` creates sound card
+- `aplay -l` shows "wm8960-audio" card
+- WM8960 codec detected on I2C bus 3
+
+### If This Fails:
+The H618 might not have proper i2s0 node support in mainline. We would need to:
+1. Check if H616/H618 is supported by sun4i-i2s driver
+2. Look for vendor kernel sources with AHUB DAUDIO driver
+3. Consider building custom kernel module
 
 ---
 

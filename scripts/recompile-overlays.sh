@@ -30,6 +30,16 @@ else
     exit 1
 fi
 
+# Compile simple-audio-card overlay (mainline sun4i-i2s driver)
+echo "Compiling sun50i-h616-wm8960-simple.dts (mainline driver)..."
+dtc -@ -I dts -O dtb -o sun50i-h616-wm8960-simple.dtbo sun50i-h616-wm8960-simple.dts
+if [ $? -eq 0 ]; then
+    echo "  ✓ Compiled successfully"
+else
+    echo "  ✗ Compilation failed!"
+    exit 1
+fi
+
 echo ""
 echo "╔════════════════════════════════════════════════════════════╗"
 echo "║   Installing Overlays to /boot                            ║"
@@ -46,6 +56,15 @@ echo "║   SUCCESS                                                  ║"
 echo "╚════════════════════════════════════════════════════════════╝"
 echo ""
 echo "Overlays compiled and installed successfully!"
+echo ""
+echo "THREE VERSIONS AVAILABLE:"
+echo "  1. wm8960-soundcard (AHUB/I2S2) - needs missing daudio driver"
+echo "  2. wm8960-soundcard-i2s3 (AHUB/I2S3) - needs missing daudio driver"
+echo "  3. wm8960-simple (mainline sun4i-i2s) <- RECOMMENDED TO TRY"
+echo ""
+echo "RECOMMENDED TEST:"
+echo "Edit /boot/orangepiEnv.txt and change overlay line to:"
+echo "  overlays=i2c1-pi wm8960-simple"
 echo ""
 echo "REBOOT REQUIRED to load the new overlays."
 echo ""
