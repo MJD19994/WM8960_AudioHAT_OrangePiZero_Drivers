@@ -22,8 +22,9 @@ OVERLAY_DIR="${SCRIPT_DIR}/../overlays"
 CONFIG_DIR="${SCRIPT_DIR}/../configs"
 
 # Overlay names (alphanumeric and hyphens only - safe for sed patterns)
-OVERLAY_PRIMARY="sun50i-h618-wm8960-soundcard"
-OVERLAY_ALT="sun50i-h618-wm8960-soundcard-i2s3"
+# NOTE: Uses sun50i-h616 prefix because H618 is treated as H616 variant by bootloader
+OVERLAY_PRIMARY="sun50i-h616-wm8960-soundcard"
+OVERLAY_ALT="sun50i-h616-wm8960-soundcard-i2s3"
 
 print_banner() {
     echo -e "${BLUE}"
@@ -196,10 +197,18 @@ configure_boot() {
                 log_info "Created overlays entry with i2c1-pi and ${OVERLAY_NAME}"
             fi
             
-            # Ensure overlay_prefix is set for H618
+            # Check overlay_prefix - H618 is treated as H616 by bootloader
+            # Don't change if already set, but add if missing
             if ! grep -q "^overlay_prefix=" "${CONFIG_FILE}"; then
-                echo "overlay_prefix=sun50i-h618" >> "${CONFIG_FILE}"
-                log_info "Set overlay_prefix to sun50i-h618"
+                echo "overlay_prefix=sun50i-h616" >> "${CONFIG_FILE}"
+                log_info "Set overlay_prefix to sun50i-h616"
+            else
+                existing_prefix=$(grep "^overlay_prefix=" "${CONFIG_FILE}" | cut -d= -f2)
+                log_info "Using existing overlay_prefix: ${existing_prefix}"
+                # Warn if it's not h616
+                if [ "${existing_prefix}" != "sun50i-h616" ] && [ "${existing_prefix}" != "sun50i-h618" ]; then
+                    log_warn "Unexpected overlay_prefix=${existing_prefix}, may need manual adjustment"
+                fi
             fi
             ;;
             

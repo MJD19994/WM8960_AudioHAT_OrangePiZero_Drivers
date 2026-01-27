@@ -144,8 +144,8 @@ pactl set-default-sink alsa_output.platform-sound-wm8960.stereo-fallback
 WM8960_AudioHAT_OrangePiZero_Drivers/
 ├── README.md                 # This file
 ├── overlays/
-│   ├── sun50i-h618-wm8960-soundcard.dts      # Device tree overlay (I2S2)
-│   └── sun50i-h618-wm8960-soundcard-i2s3.dts # Alternative overlay (I2S3)
+│   ├── sun50i-h616-wm8960-soundcard.dts      # Device tree overlay (I2S2)
+│   └── sun50i-h616-wm8960-soundcard-i2s3.dts # Alternative overlay (I2S3)
 ├── scripts/
 │   ├── install.sh            # Main installation script
 │   ├── uninstall.sh          # Uninstallation script
@@ -290,8 +290,8 @@ If the primary overlay doesn't work, try the I2C3 version:
 ```bash
 # Edit boot configuration
 sudo nano /boot/armbianEnv.txt
-# Change: overlays=sun50i-h618-wm8960-soundcard
-# To:     overlays=sun50i-h618-wm8960-soundcard-i2s3
+# Change: overlays=sun50i-h616-wm8960-soundcard
+# To:     overlays=sun50i-h616-wm8960-soundcard-i2s3
 sudo reboot
 ```
 
@@ -348,21 +348,21 @@ If the automatic installer doesn't work, you can install manually:
 2. **Compile the overlay**:
    ```bash
    cd overlays
-   dtc -@ -I dts -O dtb -o sun50i-h618-wm8960-soundcard.dtbo sun50i-h618-wm8960-soundcard.dts
+   dtc -@ -I dts -O dtb -o sun50i-h616-wm8960-soundcard.dtbo sun50i-h616-wm8960-soundcard.dts
    ```
 
 3. **Install the overlay**:
    ```bash
-   sudo cp sun50i-h618-wm8960-soundcard.dtbo /boot/dtb/allwinner/overlay/
+   sudo cp sun50i-h616-wm8960-soundcard.dtbo /boot/dtb/allwinner/overlay/
    ```
 
 4. **Enable the overlay** (edit boot config):
    ```bash
    # For DietPi/Armbian:
-   echo "overlays=sun50i-h618-wm8960-soundcard" | sudo tee -a /boot/armbianEnv.txt
+   echo "overlays=sun50i-h616-wm8960-soundcard" | sudo tee -a /boot/armbianEnv.txt
    
    # Or for Orange Pi OS:
-   echo "overlays=sun50i-h618-wm8960-soundcard" | sudo tee -a /boot/orangepiEnv.txt
+   echo "overlays=sun50i-h616-wm8960-soundcard" | sudo tee -a /boot/orangepiEnv.txt
    ```
 
 5. **Install ALSA config**:
@@ -396,15 +396,15 @@ The WM8960 is a low-power, high-quality stereo CODEC with integrated Class D spe
 
 The Allwinner H618 uses the **AHUB (Audio Hub)** architecture which differs from the simple I2S interface used on Raspberry Pi. We provide two overlay approaches:
 
-1. **Primary overlay** (`sun50i-h618-wm8960-soundcard.dts`):
-   - Uses standard I2S0 interface with simple-audio-card binding
-   - Targets I2S0 controller at `/soc@3000000/i2s@5095000`
-   - May work on some kernel versions
+1. **Primary overlay** (`sun50i-h616-wm8960-soundcard.dts`):
+   - Uses AHUB-I2S2 interface with simple-audio-card binding
+   - Targets AHUB I2S2 controller at `/soc/ahub-i2s2@5097000`
+   - Uses `i2s2` pin functions for PI0-PI4
 
-2. **Alternative overlay** (`sun50i-h618-wm8960-soundcard-i2s3.dts`):
-   - Uses AHUB-based approach with `allwinner,sunxi-snd-mach` binding
-   - More compatible with Armbian kernel audio architecture
-   - Required if kernel patches for H616/H618 sound are applied
+2. **Alternative overlay** (`sun50i-h616-wm8960-soundcard-i2s3.dts`):
+   - Uses AHUB-I2S3 interface as an alternative
+   - Targets AHUB I2S3 controller at `/soc/ahub-i2s3@5097000`
+   - Uses `i2s3` pin functions for PI0-PI4
 
 The overlays configure:
 - I2C1 bus with WM8960 at address 0x1a (via i2c1-pi overlay)
@@ -412,6 +412,11 @@ The overlays configure:
 - Audio routing for speakers, headphones, and microphones
 
 ### Important Notes on H618 Audio
+
+**⚠️ H616/H618 Naming:**
+- The Allwinner H618 SoC is treated as an H616 variant by the bootloader
+- Overlay files are named `sun50i-h616-*` to match the default `overlay_prefix=sun50i-h616`
+- This is correct - do NOT change to h618 unless your system uses a different prefix
 
 **⚠️ Current Limitations:**
 - The Allwinner H618 has limited mainline kernel audio support

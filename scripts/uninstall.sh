@@ -17,8 +17,8 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Overlay names
-OVERLAY_PRIMARY="sun50i-h618-wm8960-soundcard"
-OVERLAY_ALT="sun50i-h618-wm8960-soundcard-i2s3"
+OVERLAY_PRIMARY="sun50i-h616-wm8960-soundcard"
+OVERLAY_ALT="sun50i-h616-wm8960-soundcard-i2s3"
 
 print_banner() {
     echo -e "${BLUE}"
