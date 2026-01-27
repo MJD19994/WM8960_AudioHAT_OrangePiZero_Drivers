@@ -235,9 +235,27 @@ If overlay loads but sound card doesn't register, may need to check:
   - Boot config: `overlays=i2c1-pi wm8960-soundcard`
   - Bootloader adds prefix automatically: `sun50i-h616-wm8960-soundcard.dtbo`
 
-### Test 11 (Pending):
-- **Pull updated install script and reinstall**
-- Expected: Overlay loads with short name, slot properties work
+### Test 11 (2026-01-27 04:20):
+- Result: ⚠️ **ROOT CAUSE FOUND - AHUB architecture mismatch!**
+- What discovered: Loaded AHUB modules but devices not binding
+- Root cause identified:
+  - Overlay referenced `ahub-i2s2` node (phandle 0x92) - **NO DRIVER**
+  - System's `ahub1_mach` references `ahub1_plat` (phandle 0x32) - **HAS DRIVER**
+  - Individual ahub-i2s nodes have no driver: `allwinner,sunxi-ahub-daudio`
+  - Platform driver exists: `allwinner,sunxi-snd-plat-ahub`
+- **Architecture:**
+  - Must create AHUB platform device (like `ahub1_plat`)
+  - Platform device properties: `apb_num`, `tdm_num` (I2S port), `tx_pin`, `rx_pin`
+  - Sound card references platform device, not bare I2S node
+- **Fix Applied:** Rewrote overlay to create `wm8960-ahub-plat` platform device
+  - Compatible: `allwinner,sunxi-snd-plat-ahub`
+  - `tdm_num = 2` for I2S2
+  - Sound card now references the platform device
+- Updated install script to load `snd_soc_sunxi_ahub` module
+
+### Test 12 (Pending):
+- **Pull updated code and reinstall with AHUB platform device**
+- Expected: Platform driver binds, sound card registers successfully!
 
 ---
 

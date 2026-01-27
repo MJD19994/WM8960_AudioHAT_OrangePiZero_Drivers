@@ -330,7 +330,8 @@ load_audio_modules() {
     fi
     
     # Try to load required sound modules
-    local modules="snd_soc_core snd_soc_wm8960 snd_soc_simple_card snd_soc_simple_card_utils"
+    # CRITICAL: Load sunxi_ahub FIRST - it provides the AHUB platform driver
+    local modules="snd_soc_sunxi_ahub snd_soc_sunxi_machine snd_soc_core snd_soc_wm8960 snd_soc_simple_card snd_soc_simple_card_utils"
     
     for mod in $modules; do
         if modprobe "$mod" 2>/dev/null; then
@@ -341,7 +342,7 @@ load_audio_modules() {
     done
     
     # Add audio modules to /etc/modules for persistence
-    for mod in snd_soc_wm8960 snd_soc_simple_card; do
+    for mod in snd_soc_sunxi_ahub snd_soc_sunxi_machine snd_soc_wm8960; do
         if ! grep -q "^${mod}" /etc/modules 2>/dev/null; then
             echo "$mod" >> /etc/modules
             log_info "Added $mod to /etc/modules"

@@ -86,9 +86,31 @@
 		};
 	};
 
-	/* Fragment 3: Create sound card using sunxi-snd-mach (for AHUB compatibility) */
+	/* Fragment 3: Create AHUB platform device for WM8960 (mimics ahub1_plat structure) */
 	fragment@3 {
-		target-path = "/";
+		target-path = "/soc";
+		__overlay__ {
+			wm8960_ahub_plat: wm8960-ahub-plat {
+				compatible = "allwinner,sunxi-snd-plat-ahub";
+				#sound-dai-cells = <0>;
+				apb_num = <1>;
+				tdm_num = <2>;  /* Use I2S2 */
+				tx_pin = <0>;
+				rx_pin = <0>;
+				playback_cma = <128>;
+				capture_cma = <128>;
+				tx_fifo_size = <128>;
+				rx_fifo_size = <128>;
+				status = "okay";
+				pinctrl-names = "default";
+				pinctrl-0 = <&i2s2_wm8960_pins>, <&i2s2_wm8960_din>;
+			};
+		};
+	};
+
+	/* Fragment 4: Create sound card using sunxi-snd-mach */
+	fragment@4 {
+		target-path = "/soc";
 		__overlay__ {
 			sound_wm8960: wm8960-sound {
 				compatible = "allwinner,sunxi-snd-mach";
@@ -101,24 +123,13 @@
 				status = "okay";
 
 				soundcard-mach,cpu {
-					sound-dai = <&ahub_i2s2>;
+					sound-dai = <&wm8960_ahub_plat>;
 				};
 
 				soundcard-mach,codec {
 					sound-dai = <&wm8960_codec>;
 				};
 			};
-		};
-	};
-
-	/* Fragment 4: Enable AHUB I2S2 for audio I/O (this is the actual H618 I2S interface) */
-	fragment@4 {
-		target-path = "/soc/ahub-i2s2@5097000";
-		__overlay__ {
-			#sound-dai-cells = <0>;
-			status = "okay";
-			pinctrl-names = "default";
-			pinctrl-0 = <&i2s2_wm8960_pins>, <&i2s2_wm8960_din>;
 		};
 	};
 };
