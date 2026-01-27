@@ -130,7 +130,7 @@
 		};
 	};
 
-	/* Fragment 4: Enable AHUB I2S2 for audio output (this is the actual H618 I2S interface) */
+	/* Fragment 4: Enable AHUB I2S2 for audio I/O (this is the actual H618 I2S interface) */
 	fragment@4 {
 		target-path = "/soc/ahub-i2s2@5097000";
 		__overlay__ {

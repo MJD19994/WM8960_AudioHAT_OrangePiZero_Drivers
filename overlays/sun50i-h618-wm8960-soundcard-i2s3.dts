@@ -128,7 +128,11 @@
 		};
 	};
 
-	/* Fragment 4: Enable AHUB I2S3 for audio */
+	/* Fragment 4: Enable AHUB I2S3 for audio I/O
+	 * Note: On H618, all AHUB I2S interfaces share the same base address (5097000)
+	 * but are different virtual ports within the Audio Hub. The device tree
+	 * distinguishes them by node name (ahub-i2s1, ahub-i2s2, ahub-i2s3).
+	 */
 	fragment@4 {
 		target-path = "/soc/ahub-i2s3@5097000";
 		__overlay__ {
