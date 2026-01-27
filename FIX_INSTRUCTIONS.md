@@ -2,15 +2,58 @@
 
 ## Executive Summary
 
-The WM8960 codec **is detected on I2C** (confirmed at 0x1a on bus 3), and the kernel module loads successfully. However, **the device tree overlays are not loading** because they target non-existent device tree paths.
+The WM8960 codec **is detected on I2C** (confirmed at 0x1a on bus 3), and the kernel module loads successfully. However, **the device tree overlays are not loading**.
 
-**Root Cause**: The overlays use `/soc@3000000/...` paths, but the actual H618 device tree uses `/soc/...` paths. Additionally, the H618 uses **AHUB (Audio Hub)** architecture, not simple I2S.
+## UPDATE (After Diagnostic Test):
+
+**✓ Device tree paths are now fixed** (using `/soc/` instead of `/soc@3000000/`)
+
+**✗ NEW CRITICAL ISSUE FOUND**: The overlay is **not loading** due to a **filename/prefix mismatch**:
+
+- Boot config has: `overlay_prefix=sun50i-h616` 
+- Overlay is named: `sun50i-h618-wm8960-soundcard.dtbo`
+- **Mismatch!** The system is looking for `sun50i-h616-*.dtbo` files!
+
+**Root Cause**: The H618 SoC is being treated as H616 by the bootloader. The overlay filename must match the prefix.
 
 ---
 
 ## Critical Fixes Required
 
-### Fix 1: Correct Device Tree Paths in Both Overlays
+### Fix 0: OVERLAY FILENAME MISMATCH (NEW - CRITICAL!)
+
+**Problem**: Boot config uses `overlay_prefix=sun50i-h616` but overlays are named `sun50i-h618-*`
+
+**Solution**: Rename the overlay files to match the H616 prefix
+
+**Option A: Rename overlay files (RECOMMENDED)**
+```bash
+# On the Orange Pi:
+cd /boot/dtb/allwinner/overlay/
+sudo mv sun50i-h618-wm8960-soundcard.dtbo sun50i-h616-wm8960-soundcard.dtbo
+sudo mv sun50i-h618-wm8960-soundcard-i2s3.dtbo sun50i-h616-wm8960-soundcard-i2s3.dtbo
+
+# Update boot config:
+sudo nano /boot/dietpiEnv.txt
+# Change: overlays=i2c1-pi sun50i-h618-wm8960-soundcard
+# To:     overlays=i2c1-pi sun50i-h616-wm8960-soundcard
+
+sudo reboot
+```
+
+**Option B: Change overlay prefix to h618**
+```bash
+sudo nano /boot/dietpiEnv.txt
+# Change: overlay_prefix=sun50i-h616
+# To:     overlay_prefix=sun50i-h618
+sudo reboot
+```
+
+**Note**: Option A is recommended because the H618 is essentially an H616 variant, and the DietPi/Armbian system is configured for H616.
+
+---
+
+### Fix 1: Correct Device Tree Paths in Both Overlays (✓ DONE)
 
 **Files to fix:**
 - `overlays/sun50i-h618-wm8960-soundcard.dts`
@@ -167,9 +210,79 @@ Make similar path changes:
 
 ## Testing Procedure
 
-After making changes:
+### Step 1: Fix the Overlay Naming (Do This First!)
 
-1. **Recompile the overlay:**
+**On the Orange Pi, run:**
+```bash
+# Rename overlay files to match h616 prefix
+cd /boot/dtb/allwinner/overlay/
+sudo mv sun50i-h618-wm8960-soundcard.dtbo sun50i-h616-wm8960-soundcard.dtbo
+sudo mv sun50i-h618-wm8960-soundcard-i2s3.dtbo sun50i-h616-wm8960-soundcard-i2s3.dtbo
+
+# Update boot config
+sudo sed -i 's/sun50i-h618-wm8960-soundcard/sun50i-h616-wm8960-soundcard/g' /boot/dietpiEnv.txt
+
+# Reboot
+sudo reboot
+```
+
+### Step 2: Verify Overlay Loaded
+
+After reboot:
+```bash
+# Check for WM8960 in device tree (should now appear!)
+find /proc/device-tree -name "*wm8960*"
+
+# Check for sound card
+cat /proc/asound/cards
+aplay -l
+
+# Check kernel messages
+dmesg | grep -iE "wm8960|simple-audio|ahub"
+
+# Run full diagnostic
+sudo bash scripts/diagnose-h618.sh
+```
+
+### Step 3: If overlay loads but no sound card
+
+If you now see WM8960 in /proc/device-tree but still no sound card, the issue is in the overlay configuration itself (likely pin functions or AHUB setup).
+
+Then try these pin function alternatives in the DTS files:
+
+Then try these pin function alternatives in the DTS files:
+### Step 4: Check Pin Claiming
+
+Pins PI0-PI4 should be claimed by the I2S/AHUB driver:
+```bash
+cat /sys/kernel/debug/pinctrl/300b000.pinctrl/pinmux-pins | grep -E "pin 25[6-9]|pin 260"
+# Should show pins claimed by ahub or i2s, not UNCLAIMED
+```
+
+### Step 5: Manual Compilation (If Changing DTS)
+
+If you need to modify and recompile overlays:
+```bash
+cd overlays
+dtc -@ -I dts -O dtb -o sun50i-h616-wm8960-soundcard.dtbo sun50i-h616
+function = "i2s2";
+function = "i2s2_dout0";
+```
+
+**Option 2: Try i2s3 functions**
+```dts
+function = "i2s3";
+```bash
+cd overlays
+dtc -@ -I dts -O dtb -o sun50i-h616-wm8960-soundcard.dtbo sun50i-h616-wm8960-soundcard.dts
+```
+
+**2. Copy to boot directory:**
+```bash
+sudo cp sun50i-h616-wm8960-soundcard.dtbo /boot/dtb/allwinner/overlay/
+**Option 3: Keep i2s0 (might work)**
+
+### Step 4: Check Pin Claiming
 ```bash
 cd overlays
 dtc -@ -I dts -O dtb -o sun50i-h618-wm8960-soundcard.dtbo sun50i-h618-wm8960-soundcard.dts
@@ -242,10 +355,11 @@ This matches what's in the DTS files - the pin assignments are **correct**.
 
 ## Priority Actions
 
-1. **HIGH**: Fix device tree paths (`/soc@3000000/` → `/soc/`)
-2. **HIGH**: Use AHUB node instead of simple I2S
-3. **MEDIUM**: Try i2s2 function names instead of i2s0
-4. **LOW**: Consider which AHUB interface to use (i2s2 vs i2s3)
+1. **CRITICAL**: Fix overlay filename mismatch (h618 → h616) OR change overlay_prefix
+2. **HIGH**: Verify overlay loads after rename (check for WM8960 in /proc/device-tree)
+3. **HIGH**: If still not working, check pin functions (i2s0 vs i2s2 vs i2s3)
+4. **MEDIUM**: Verify AHUB node configuration
+5. **LOW**: Consider alternative overlay approaches
 
 ---
 
