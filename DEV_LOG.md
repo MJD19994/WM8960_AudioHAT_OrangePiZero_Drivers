@@ -141,8 +141,18 @@ If overlay loads but sound card doesn't register, may need to check:
 - ✗ Overlay still not loading
 - Reason: Compatible string mismatch (h618 vs h616)
 
-### Test 4 (Pending):
-- **NEED TO RECOMPILE AND TEST**
+### Test 4 (2026-01-27 02:32):
+- Result: ✗ **FAILED - Overlay still not loading**
+- What changed: Compiled with h616 compatible string
+- New findings: 
+  - **CRITICAL**: Base device tree reports `allwinner,sun50i-h618`
+  - Overlay was compiled with `h616` - **THIS IS THE MISMATCH!**
+  - We changed the WRONG direction - need h618, not h616!
+  - Boot config uses h616 prefix but base DT is h618
+- Next action: **Change compatible back to h618**
+
+### Test 5 (In Progress):
+- **FIXING NOW: Change compatible string from h616 back to h618**
 
 ---
 
