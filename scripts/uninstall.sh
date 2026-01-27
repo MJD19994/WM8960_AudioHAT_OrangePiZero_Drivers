@@ -125,13 +125,18 @@ remove_boot_config() {
         dietpi|orangepi|armbian)
             # Remove overlay entries from overlays= line
             if grep -q "overlays=" "${CONFIG_FILE}"; then
-                # Remove our overlay names from the overlays line
+                # Remove our overlay names (with and without prefix)
                 sed -i "s/ ${OVERLAY_PRIMARY}//g" "${CONFIG_FILE}"
                 sed -i "s/${OVERLAY_PRIMARY} //g" "${CONFIG_FILE}"
                 sed -i "s/${OVERLAY_PRIMARY}//g" "${CONFIG_FILE}"
                 sed -i "s/ ${OVERLAY_ALT}//g" "${CONFIG_FILE}"
                 sed -i "s/${OVERLAY_ALT} //g" "${CONFIG_FILE}"
                 sed -i "s/${OVERLAY_ALT}//g" "${CONFIG_FILE}"
+                # Also remove short names without sun50i-h616 prefix
+                sed -i "s/ wm8960-soundcard//g" "${CONFIG_FILE}"
+                sed -i "s/wm8960-soundcard //g" "${CONFIG_FILE}"
+                sed -i "s/ wm8960-soundcard-i2s3//g" "${CONFIG_FILE}"
+                sed -i "s/wm8960-soundcard-i2s3 //g" "${CONFIG_FILE}"
                 
                 # Clean up empty overlays= line
                 sed -i '/^overlays=$/d' "${CONFIG_FILE}"
