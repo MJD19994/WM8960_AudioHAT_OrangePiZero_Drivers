@@ -1,53 +1,54 @@
 # WM8960 Driver Development Log
 
-## Current Status: OVERLAY NOT LOADING - Compatible String Fixed, Needs Recompile
+## Current Status: TEST 9 - Recompile with sunxi-snd-mach (In Progress)
 
 ---
 
-## Latest Finding (2026-01-27)
+## Latest Finding (2026-01-27 - Test 9)
 
-**Problem**: Overlay still not loading after fixing paths and filenames  
-**Root Cause**: Compatible string mismatch  
-- Overlay declares: `compatible = "allwinner,sun50i-h618"`
-- System expects: `compatible = "allwinner,sun50i-h616"`
+**Problem**: Overlays still have old simple-audio-card compatible loaded  
+**Root Cause**: Source files were updated but overlays not recompiled yet  
+- Source files now have `allwinner,sunxi-snd-mach` ✓
+- Compiled .dtbo files still have old simple-audio-card ✗
+- Need to recompile the overlays
 
-**Fix Applied**: Changed both `.dts` source files to use `h616`
-- ✅ `overlays/sun50i-h616-wm8960-soundcard.dts` - Line 34 changed
-- ✅ `overlays/sun50i-h616-wm8960-soundcard-i2s3.dts` - Line 34 changed
-
-**Status**: Changes made to source, **NEEDS RECOMPILE** before testing
+**Status**: Created recompile script, **READY TO RECOMPILE**
 
 ---
 
 ## Next Steps
 
-### For Agent to Do:
-1. **Recompile the overlays**:
-   ```bash
-   cd overlays
-   dtc -@ -I dts -O dtb -o sun50i-h616-wm8960-soundcard.dtbo sun50i-h616-wm8960-soundcard.dts
-   dtc -@ -I dts -O dtb -o sun50i-h616-wm8960-soundcard-i2s3.dtbo sun50i-h616-wm8960-soundcard-i2s3.dts
-   ```
+### RECOMPILE AND TEST:
+```bash
+# Make script executable
+chmod +x scripts/recompile-overlays.sh
 
-2. **Copy to Orange Pi**:
-   ```bash
-   sudo cp sun50i-h616-wm8960-soundcard*.dtbo /boot/dtb/allwinner/overlay/
-   sudo reboot
-   ```
+# Recompile and install overlays
+sudo bash scripts/recompile-overlays.sh
 
-3. **Test**:
-   ```bash
-   find /proc/device-tree -name "*wm8960*"
-   sudo bash scripts/diagnose-h618.sh
-   ```
+# Reboot to load new overlays
+sudo reboot
+```
+
+### After reboot:
+```bash
+# Check if sunxi machine driver loaded
+lsmod | grep sunxi
+cat /sys/firmware/devicetree/base/wm8960-sound-ahub/compatible
+
+# Run diagnostics
+sudo bash scripts/diagnose-h618.sh
+aplay -l
+```
 
 ### Expected Outcome:
-- WM8960 nodes should now appear in `/proc/device-tree`
-- Overlay status should show "✓ Loaded"
+- sunxi_machine driver should load automatically
+- Sound card should register successfully
+- `aplay -l` should show wm8960-soundcard device
 
 ---
 
-## All Fixes Applied So Far
+## All Test Iterations
 
 ### 1. ✅ Device Tree Paths (Fixed)
 **Problem**: Overlays targeted `/soc@3000000/...` but H618 uses `/soc/...`  
@@ -151,8 +152,62 @@ If overlay loads but sound card doesn't register, may need to check:
   - Boot config uses h616 prefix but base DT is h618
 - Next action: **Change compatible back to h618**
 
-### Test 5 (In Progress):
-- **FIXING NOW: Change compatible string from h616 back to h618**
+### Test 5 (2026-01-27 02:43):
+- Result: ✗ **FAILED - Overlay STILL not loading**
+- What changed: Reverted to h618 compatible (correct)
+- New findings:
+  - **ROOT CAUSE FOUND**: Boot config error!
+  - Config has: `overlays=i2c1-pi sun50i-h616-wm8960-soundcard`
+  - But bootloader adds prefix automatically!
+  - It's looking for: `sun50i-h616-sun50i-h616-wm8960-soundcard.dtbo`
+  - File is actually: `sun50i-h616-wm8960-soundcard.dtbo`
+- Next action: **Change boot config to just `wm8960-soundcard`**
+
+### Test 6 (2026-01-27 02:50):
+- Result: ⚠️ **PARTIAL SUCCESS - Overlay IS LOADING!**
+- What changed: Fixed boot config to `overlays=i2c1-pi wm8960-soundcard`
+- Successes:
+  - ✅ WM8960 nodes appear in device tree!
+  - ✅ I2C shows "UU" at 0x1a (driver claimed it)
+  - ✅ WM8960 codec initializing (loading dummy regulators)
+  - ✅ Custom pinctrl definitions loaded (i2s2-wm8960-pins)
+- New Issue:
+  - ✗ **simple-audio-card parse error**
+  - Error: `platform wm8960-sound: deferred probe pending: asoc-simple-card: parse error`
+  - Pins PI0-PI4 still UNCLAIMED (I2S not starting)
+- Root cause: simple-audio-card can't parse something in the overlay
+- Next action: Check I2S node reference and simple-audio-card configuration
+
+### Test 7 (2026-01-27 03:00):
+- Result: ⚠️ **ISSUE IDENTIFIED**
+- What checked: AHUB compatible string and simple-audio-card compatibility
+- Root cause found:
+  - AHUB compatible: `allwinner,sunxi-ahub-daudio`
+  - simple-audio-card does NOT support AHUB devices
+  - simple-audio-card only works with standard I2S/DAI devices
+  - H618 requires Allwinner-specific `sunxi-snd-mach` driver
+- Solution: Try the alternative overlay (i2s3) that uses AHUB-based approach
+- Next action: Switch to sun50i-h616-wm8960-soundcard-i2s3 overlay
+
+### Test 8 (2026-01-27 03:20):
+- Result: ✗ **FAILED - Same parse error**
+- What changed: Switched to i2s3 overlay (but it still had simple-audio-card)
+- Boot config: `overlays=i2c1-pi wm8960-soundcard-i2s3`
+- Findings:
+  - ✅ Overlay loading successfully
+  - ✅ WM8960 codec initializing
+  - ✅ I2C working (UU at 0x1a)
+  - ✗ **STILL getting: asoc-simple-card: parse error**
+  - Root cause: i2s3 overlay also uses simple-audio-card!
+- **Solution identified**: 
+  - Found driver: `snd_soc_sunxi_machine.ko` exists in kernel
+  - Need to update BOTH overlays to use `allwinner,sunxi-snd-mach`
+  - Change properties from `simple-audio-card,*` to `soundcard-mach,*`
+- Next action: Update both overlays to use sunxi-snd-mach driver
+
+### Test 9 (Pending):
+- **Recompile both overlays with sunxi-snd-mach compatible**
+- Expected: sunxi machine driver loads, sound card registers
 
 ---
 

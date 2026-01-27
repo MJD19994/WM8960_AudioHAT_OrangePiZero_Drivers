@@ -89,39 +89,18 @@
 		target-path = "/";
 		__overlay__ {
 			wm8960_sound_ahub: wm8960-sound-ahub {
-				compatible = "simple-audio-card";
-				simple-audio-card,name = "wm8960-soundcard";
-				simple-audio-card,format = "i2s";
-				simple-audio-card,mclk-fs = <256>;
-				simple-audio-card,bitclock-master = <&ahub_codec>;
-				simple-audio-card,frame-master = <&ahub_codec>;
+				compatible = "allwinner,sunxi-snd-mach";
+				soundcard-mach,name = "wm8960-soundcard";
+				soundcard-mach,format = "i2s";
+				soundcard-mach,frame-master = <&wm8960_ahub>;
+				soundcard-mach,bitclock-master = <&wm8960_ahub>;
 				status = "okay";
 
-				simple-audio-card,widgets =
-					"Microphone", "Mic Jack",
-					"Line", "Line In",
-					"Line", "Line Out",
-					"Speaker", "Speaker",
-					"Headphone", "Headphone Jack";
-
-				simple-audio-card,routing =
-					"Headphone Jack", "HP_L",
-					"Headphone Jack", "HP_R",
-					"Speaker", "SPK_LP",
-					"Speaker", "SPK_LN",
-					"Speaker", "SPK_RP",
-					"Speaker", "SPK_RN",
-					"LINPUT1", "Mic Jack",
-					"LINPUT3", "Mic Jack",
-					"RINPUT1", "Mic Jack",
-					"RINPUT2", "Line In",
-					"LINPUT2", "Line In";
-
-				simple-audio-card,cpu {
+				soundcard-mach,cpu {
 					sound-dai = <&ahub_i2s3>;
 				};
 
-				ahub_codec: simple-audio-card,codec {
+				soundcard-mach,codec {
 					sound-dai = <&wm8960_ahub>;
 				};
 			};
