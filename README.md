@@ -41,9 +41,16 @@ cd WM8960_AudioHAT_OrangePiZero_Drivers
 # Run the installer (requires sudo)
 sudo bash scripts/install.sh
 
+# You will be prompted to select an overlay version:
+#   1) wm8960-simple (RECOMMENDED - uses mainline sun4i-i2s driver)
+#   2) wm8960-soundcard (AHUB architecture - requires missing driver)
+#   3) wm8960-soundcard-i2s3 (AHUB alternative - requires missing driver)
+
 # Reboot the system
 sudo reboot
 ```
+
+**Note**: The recommended overlay (`wm8960-simple`) uses the mainline Linux `sun4i-i2s` driver which is more reliable on H618. The AHUB-based overlays require a vendor driver that may not be available in all kernel builds.
 
 ### Verify Installation
 

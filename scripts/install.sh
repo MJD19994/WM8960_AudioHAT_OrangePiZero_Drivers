@@ -25,10 +25,12 @@ CONFIG_DIR="${SCRIPT_DIR}/../configs"
 # NOTE: Uses sun50i-h616 prefix because H618 is treated as H616 variant by bootloader
 OVERLAY_PRIMARY="sun50i-h616-wm8960-soundcard"
 OVERLAY_ALT="sun50i-h616-wm8960-soundcard-i2s3"
+OVERLAY_SIMPLE="sun50i-h616-wm8960-simple"
 
 # Short names for boot config (without prefix - bootloader adds it automatically)
 OVERLAY_SHORT_NAME="wm8960-soundcard"
 OVERLAY_ALT_SHORT_NAME="wm8960-soundcard-i2s3"
+OVERLAY_SIMPLE_SHORT_NAME="wm8960-simple"
 
 print_banner() {
     echo -e "${BLUE}"
@@ -146,6 +148,14 @@ compile_overlays() {
         }
     fi
     
+    # Compile simple overlay (mainline sun4i-i2s driver)
+    if [ -f "${OVERLAY_SIMPLE}.dts" ]; then
+        log_info "Compiling ${OVERLAY_SIMPLE}.dts..."
+        dtc -@ -I dts -O dtb -o "${OVERLAY_SIMPLE}.dtbo" "${OVERLAY_SIMPLE}.dts" 2>/dev/null || {
+            dtc -I dts -O dtb -o "${OVERLAY_SIMPLE}.dtbo" "${OVERLAY_SIMPLE}.dts"
+        }
+    fi
+    
     log_info "Overlays compiled successfully"
 }
 
@@ -162,15 +172,68 @@ install_overlays() {
         install -Dm644 "${OVERLAY_DIR}/${OVERLAY_ALT}.dtbo" "${OVERLAY_DEST}/${OVERLAY_ALT}.dtbo"
         log_info "Installed ${OVERLAY_ALT}.dtbo"
     fi
+    
+    if [ -f "${OVERLAY_DIR}/${OVERLAY_SIMPLE}.dtbo" ]; then
+        install -Dm644 "${OVERLAY_DIR}/${OVERLAY_SIMPLE}.dtbo" "${OVERLAY_DEST}/${OVERLAY_SIMPLE}.dtbo"
+        log_info "Installed ${OVERLAY_SIMPLE}.dtbo"
+    fi
+}
+
+select_overlay() {
+    echo ""
+    echo -e "${YELLOW}╔════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${YELLOW}║   SELECT OVERLAY VERSION                                   ║${NC}"
+    echo -e "${YELLOW}╚════════════════════════════════════════════════════════════╝${NC}"
+    echo ""
+    echo "Three overlay versions are available:"
+    echo ""
+    echo -e "${GREEN}1) wm8960-simple${NC} (RECOMMENDED)"
+    echo "   - Uses mainline sun4i-i2s driver"
+    echo "   - Simple-audio-card architecture"
+    echo "   - Best chance of working on H618"
+    echo ""
+    echo -e "${YELLOW}2) wm8960-soundcard${NC} (AHUB/I2S2)"
+    echo "   - Uses vendor AHUB architecture"
+    echo "   - Requires AHUB DAUDIO driver (currently missing in kernel)"
+    echo "   - May not work until driver is available"
+    echo ""
+    echo -e "${YELLOW}3) wm8960-soundcard-i2s3${NC} (AHUB/I2S3)"
+    echo "   - Alternative AHUB I2S interface"
+    echo "   - Also requires missing AHUB DAUDIO driver"
+    echo ""
+    
+    read -p "Enter your choice (1-3) [default: 1]: " choice
+    choice=${choice:-1}
+    
+    case "$choice" in
+        1)
+            OVERLAY_BOOT_NAME="${OVERLAY_SIMPLE_SHORT_NAME}"
+            log_info "Selected: wm8960-simple (mainline driver)"
+            ;;
+        2)
+            OVERLAY_BOOT_NAME="${OVERLAY_SHORT_NAME}"
+            log_warn "Selected: wm8960-soundcard (may not work - missing AHUB driver)"
+            ;;
+        3)
+            OVERLAY_BOOT_NAME="${OVERLAY_ALT_SHORT_NAME}"
+            log_warn "Selected: wm8960-soundcard-i2s3 (may not work - missing AHUB driver)"
+            ;;
+        *)
+            log_error "Invalid choice. Using default: wm8960-simple"
+            OVERLAY_BOOT_NAME="${OVERLAY_SIMPLE_SHORT_NAME}"
+            ;;
+    esac
 }
 
 configure_boot() {
     log_info "Configuring boot parameters..."
     
+    # Ask user to select overlay version
+    select_overlay
+    
     # Use the primary overlay file (full name for file operations)
     OVERLAY_NAME="${OVERLAY_PRIMARY}"
-    # Use short name for boot config (bootloader adds prefix automatically)
-    OVERLAY_BOOT_NAME="${OVERLAY_SHORT_NAME}"
+    # OVERLAY_BOOT_NAME is now set by select_overlay()
     
     case "${BOOT_ENV}" in
         dietpi|orangepi|armbian)
