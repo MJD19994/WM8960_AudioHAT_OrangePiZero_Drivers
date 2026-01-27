@@ -253,9 +253,22 @@ If overlay loads but sound card doesn't register, may need to check:
   - Sound card now references the platform device
 - Updated install script to load `snd_soc_sunxi_ahub` module
 
-### Test 12 (Pending):
-- **Pull updated code and reinstall with AHUB platform device**
-- Expected: Platform driver binds, sound card registers successfully!
+### Test 12 (2026-01-27 04:32):
+- Result: ⚠️ **PIN FUNCTION MISMATCH DISCOVERED!**
+- AHUB platform device attempted to bind but failed with error -22
+- Errors: `unsupported function i2s2 on pin PI0-PI4`
+- **ROOT CAUSE:** PI port pins use I2S0 functions, NOT I2S2!
+  - Pinmux shows: `i2s0, groups = [ PI0 PI1 PI2 ]`
+  - I2S2 is actually on PG pins: `i2s2, groups = [ PG10 PG11 PG12 PG13 PG14 ]`
+- **Fix Applied:**
+  - Changed pin functions: `i2s2` → `i2s0`
+  - Changed DIN function: `i2s2_din0` → `i2s0_din0`
+  - Changed AHUB TDM: `tdm_num = 2` → `tdm_num = 0` (for I2S0)
+  - Updated pinctrl references in AHUB platform device
+
+### Test 13 (Pending):
+- **Recompile overlay with I2S0 configuration**
+- Expected: Pins claim successfully, AHUB binds, sound card registers!
 
 ---
 
