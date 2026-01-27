@@ -7,7 +7,7 @@
  *
  * This overlay enables the WM8960 codec connected via:
  *   - I2C for control (address 0x1a on /dev/i2c-3)
- *   - I2S for audio data
+ *   - I2S via AHUB (Audio Hub) for audio data
  *
  * IMPORTANT: This overlay requires the base i2c1-pi overlay to be enabled first!
  *   In /boot/armbianEnv.txt, ensure:
@@ -18,11 +18,14 @@
  *   Pin 5  (PI7)  - I2C SCL
  *   Pin 12 (PI1)  - I2S BCLK
  *   Pin 35 (PI2)  - I2S LRCK
- *   Pin 38 (PI4)  - I2S DIN
- *   Pin 40 (PI3)  - I2S DOUT
+ *   Pin 38 (PI4)  - I2S DIN (ADC - mic input)
+ *   Pin 40 (PI3)  - I2S DOUT (DAC - speaker output)
  *
  * After enabling i2c1-pi overlay, the I2C appears as /dev/i2c-3
  * The WM8960 should be detected at address 0x1a on that bus.
+ *
+ * NOTE: The H618 uses AHUB (Audio Hub) architecture for I2S.
+ * The actual nodes are at /soc/ahub-i2s[1-3]@5097000
  */
 
 /dts-v1/;
@@ -31,7 +34,7 @@
 / {
 	compatible = "xunlong,orangepi-zero2w", "allwinner,sun50i-h618";
 
-	/* Fragment 0: Add WM8960 codec to the root node */
+	/* Fragment 0: Add fixed MCLK clock for WM8960 */
 	fragment@0 {
 		target-path = "/";
 		__overlay__ {
@@ -46,7 +49,7 @@
 
 	/* Fragment 1: Add WM8960 codec to I2C1 (which becomes /dev/i2c-3 with i2c1-pi overlay) */
 	fragment@1 {
-		target-path = "/soc@3000000/i2c@5002400";
+		target-path = "/soc/i2c@5002400";
 		__overlay__ {
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -63,20 +66,20 @@
 		};
 	};
 
-	/* Fragment 2: Define I2S pins for audio on PI port */
+	/* Fragment 2: Define I2S pins for audio on PI port - use i2s2 functions */
 	fragment@2 {
-		target-path = "/soc@3000000/pinctrl@300b000";
+		target-path = "/soc/pinctrl@300b000";
 		__overlay__ {
-			i2s0_wm8960_pins: i2s0-wm8960-pins {
+			i2s2_wm8960_pins: i2s2-wm8960-pins {
 				pins = "PI0", "PI1", "PI2", "PI3";
-				function = "i2s0";
+				function = "i2s2";
 				drive-strength = <20>;
 				bias-disable;
 			};
 
-			i2s0_wm8960_dout: i2s0-wm8960-dout {
+			i2s2_wm8960_din: i2s2-wm8960-din {
 				pins = "PI4";
-				function = "i2s0_dout0";
+				function = "i2s2_din0";
 				drive-strength = <20>;
 				bias-disable;
 			};
@@ -117,7 +120,7 @@
 					"LINPUT2", "Line In";
 
 				simple-audio-card,cpu {
-					sound-dai = <&i2s0>;
+					sound-dai = <&ahub_i2s2>;
 				};
 
 				dailink_codec: simple-audio-card,codec {
@@ -127,14 +130,14 @@
 		};
 	};
 
-	/* Fragment 4: Enable I2S0 for audio output */
+	/* Fragment 4: Enable AHUB I2S2 for audio output (this is the actual H618 I2S interface) */
 	fragment@4 {
-		target-path = "/soc@3000000/i2s@5095000";
+		target-path = "/soc/ahub-i2s2@5097000";
 		__overlay__ {
 			#sound-dai-cells = <0>;
 			status = "okay";
 			pinctrl-names = "default";
-			pinctrl-0 = <&i2s0_wm8960_pins>, <&i2s0_wm8960_dout>;
+			pinctrl-0 = <&i2s2_wm8960_pins>, <&i2s2_wm8960_din>;
 		};
 	};
 };
