@@ -278,9 +278,34 @@ If overlay loads but sound card doesn't register, may need to check:
   - `i2s0-wm8960-din`: PI4 → `i2s0_din0`
   - Updated AHUB pinctrl-0 to reference all three groups
 
-### Test 14 (Pending):
-- **Recompile with split pinctrl groups**
-- Expected: All pins claim successfully, AHUB binds, SOUND CARD REGISTERS! 🎉
+### Test 14: Missing DMA Configuration
+- **Result:** AHUB platform device probe fails with error -22
+- **Errors Found:**
+  ```
+  [AHUB_DAM snd_soc_sunxi_ahub_mem_get] regmap is invalid
+  [AHUB sunxi_ahub_dev_probe] remap get failed
+  probe with driver sunxi-snd-plat-ahub failed with error -22
+  ```
+- **Root Cause:** wm8960-ahub-plat device missing DMA properties completely
+  - ahub1_plat has: `dma-names="txrx"` and `dmas` property
+  - Our device: NO DMA properties at all!
+  - AHUB driver requires DMA channels for audio data transfer
+- **DMA Config from ahub1_plat:**
+  ```
+  dmas = 0x1c 0x04 0x1c 0x04  (phandle + request for TX/RX)
+  dma-names = "tx", "rx"
+  DMA controller: /soc/dma-controller@3002000
+  ahub1_plat: tdm_num=1 (I2S1), DMA request 4
+  ```
+
+### Test 15 (Current):
+- **Change:** Add DMA properties to wm8960-ahub-plat
+  ```dts
+  dmas = <0x1c 0x04>, <0x1c 0x04>;
+  dma-names = "tx", "rx";
+  ```
+- **Note:** Using same DMA request (4) as ahub1_plat. May need adjustment for I2S0.
+- **Expected:** AHUB probe succeeds, sound card registers! 🔊
 
 ---
 

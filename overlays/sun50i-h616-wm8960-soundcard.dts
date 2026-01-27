@@ -107,8 +107,8 @@
 				playback_cma = <128>;
 				capture_cma = <128>;
 				tx_fifo_size = <128>;
-				rx_fifo_size = <128>;
-				status = "okay";
+				rx_fifo_size = <128>;				dmas = <0x1c 0x04>, <0x1c 0x04>;
+				dma-names = "tx", "rx";				status = "okay";
 				pinctrl-names = "default";
 				pinctrl-0 = <&i2s0_wm8960_pins>, <&i2s0_wm8960_dout>, <&i2s0_wm8960_din>;
 			};
