@@ -81,8 +81,8 @@ def main():
 		};
 '''
     
-    # Find a pinctrl node to insert after (use i2c4_pins)
-    pattern = r'(i2c4_pins: i2c4-pins \{[^}]+\};)'
+    # Find a pinctrl node to insert after (use uart0-ph-pins)
+    pattern = r'(uart0-ph-pins \{.*?phandle = <0x29>;\s+\};)'
     match = re.search(pattern, content, re.MULTILINE | re.DOTALL)
     if match:
         insert_pos = match.end()
@@ -105,8 +105,8 @@ def main():
 			};
 '''
     
-    # Find i2c@5003000 (i2c2) and insert before closing brace
-    pattern = r'(i2c@5003000 \{[^}]+status = "okay";)'
+    # Add WM8960 to i2c2 (even though it's disabled, overlay enables it)
+    pattern = r'(i2c@5003000 \{.*?#size-cells = <0x00>;)'
     match = re.search(pattern, content, re.MULTILINE | re.DOTALL)
     if match:
         insert_pos = match.end()
