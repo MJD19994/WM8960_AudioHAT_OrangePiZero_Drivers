@@ -59,7 +59,7 @@ def main():
 '''
     
     # Find ahub1_mach closing and insert after
-    pattern = r'(ahub1_mach \{[^}]+soundcard-mach,codec \{[^}]+\};[\s\n]+\};)'
+    pattern = r'(ahub1_mach \{.*?soundcard-mach,codec \{.*?\};[\s\n]+\};)'
     match = re.search(pattern, content, re.MULTILINE | re.DOTALL)
     if match:
         insert_pos = match.end()
