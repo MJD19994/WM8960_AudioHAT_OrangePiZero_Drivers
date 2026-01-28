@@ -48,7 +48,7 @@ sed -i '/ahub_dam_mach {/,/};/{
 			#sound-dai-cells = <0x00>;\
 			compatible = "allwinner,sunxi-snd-plat-ahub";\
 			apb_num = <0x00>;\
-			dmas = <&dma 0x03>, <&dma 0x03>;\
+			dmas = <0x24 0x03 0x24 0x03>;\
 			dma-names = "tx", "rx";\
 			playback_cma = <0x80>;\
 			capture_cma = <0x80>;\
