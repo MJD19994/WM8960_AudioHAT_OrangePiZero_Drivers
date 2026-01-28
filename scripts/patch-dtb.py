@@ -105,11 +105,11 @@ def main():
 			};
 '''
     
-    # Add WM8960 to i2c2 (even though it's disabled, overlay enables it)
-    pattern = r'(i2c@5003000 \{.*?#size-cells = <0x00>;)'
+    # Add WM8960 to i2c2 (insert after phandle, before closing brace)
+    pattern = r'(i2c@5003000 \{.*?phandle = <0x7d>;)\s*\n(\s+\};)'
     match = re.search(pattern, content, re.MULTILINE | re.DOTALL)
     if match:
-        insert_pos = match.end()
+        insert_pos = match.end(1)  # After phandle
         content = content[:insert_pos] + wm8960_node + content[insert_pos:]
         print("✓ WM8960 codec added")
     else:
