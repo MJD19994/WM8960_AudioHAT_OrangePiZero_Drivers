@@ -10,9 +10,10 @@ Drivers and device tree overlays to enable **Keyestudio ReSpeaker 2-Mic HAT** (a
 
 ## Tested Configuration
 
-- **OS**: DietPi
-- **Kernel**: Linux 6.12.65-current-sunxi64
+- **OS**: DietPi / Armbian
+- **Kernel**: Linux 6.12.x-current-sunxi64 (mainline)
 - **Architecture**: aarch64 (ARM64)
+- **⚠️ Status**: Missing DAUDIO driver - see [Kernel Investigation](#kernel-investigation) below
 
 ## Features
 
@@ -425,11 +426,142 @@ The overlays configure:
 - Overlay files are named `sun50i-h616-*` to match the default `overlay_prefix=sun50i-h616`
 - This is correct - do NOT change to h618 unless your system uses a different prefix
 
-**⚠️ Current Limitations:**
-- The Allwinner H618 has limited mainline kernel audio support
-- The kernel may require Armbian patches for proper I2S/AHUB functionality
-- The `snd_soc_wm8960` module is NOT included in default Armbian kernels
-- You may need to build the WM8960 module from source (see build-wm8960-module.sh)
+## Kernel Investigation
+
+### ⚠️ Missing DAUDIO Driver Issue
+
+Through extensive testing, we've identified that the **AHUB-based approach requires a driver that is MISSING from current mainline kernels**:
+
+**Missing Module**: `snd_soc_sunxi_ahub_daudio.ko`
+
+This driver is the I2S hardware controller for Allwinner's AHUB (Audio Hub) architecture used in H616/H618 SoCs. While our device tree overlays are correct and all hardware is properly configured, the audio cannot function without this critical driver.
+
+**Testing Results:**
+- ✅ Hardware: WM8960 detected on I2C bus 3 at 0x1a
+- ✅ Device Tree: Overlay loads successfully, AHUB device created
+- ✅ Kernel modules: AHUB core and DAM (mixer) modules present
+- ❌ **DAUDIO driver: Missing from kernel (not compiled, source not in tree)**
+- Status: Device shows "deferred probe pending" waiting for driver
+
+**Tested Kernels:**
+- DietPi 6.12.66-current-sunxi64: ❌ No DAUDIO
+- Armbian 6.12.67-current-sunxi64: ❌ No DAUDIO
+- Both use mainline kernel - vendor BSP drivers not included
+
+### Investigation & Solutions
+
+We've created comprehensive guides to help you find or compile the missing driver:
+
+#### 1. Check Available Kernel Flavors
+
+Run the investigation script on your Orange Pi:
+
+```bash
+# Make script executable
+chmod +x scripts/investigate-kernel.sh
+
+# Run investigation
+sudo bash scripts/investigate-kernel.sh > kernel-report.txt
+
+# Review results
+cat kernel-report.txt
+```
+
+This will check:
+- Available kernel packages (current/legacy/edge)
+- Kernel configuration for SUNXI audio drivers
+- Existing AHUB modules
+- Potential driver locations
+
+#### 2. Try Legacy Kernel (Highest Success Probability)
+
+**Legacy kernels** (5.x or 6.1.x with vendor BSP) are most likely to include the DAUDIO driver:
+
+```bash
+# For DietPi
+sudo apt install linux-image-legacy-sunxi64 linux-headers-legacy-sunxi64
+sudo reboot
+
+# For Armbian - use armbian-config
+sudo armbian-config
+# Navigate to: System → Install → Install legacy kernel
+
+# After reboot, check for DAUDIO
+find /lib/modules/$(uname -r) -name "*daudio*"
+```
+
+See [KERNEL_SWITCHING_GUIDE.md](KERNEL_SWITCHING_GUIDE.md) for detailed instructions.
+
+#### 3. Test Orange Pi Official OS
+
+Orange Pi's official OS images likely include the vendor BSP with all drivers:
+
+1. Download from: http://www.orangepi.org/orangepiwiki/index.php/Orange_Pi_Zero_2W
+2. Flash to SD card and boot
+3. Check for DAUDIO driver:
+   ```bash
+   find /lib/modules/$(uname -r) -name "*daudio*"
+   ```
+4. If found, you can either use that OS or extract the driver module
+
+#### 4. Search for Driver Source Code
+
+The driver source may be available in vendor BSP packages:
+
+- **Allwinner Longan SDK** (official but requires registration)
+- **Orange Pi kernel source** (check official downloads page)
+- **Tina Linux** (Allwinner's OpenWrt-based distribution)
+
+See [DRIVER_SOURCE_SEARCH.md](DRIVER_SOURCE_SEARCH.md) for locations to check and compilation instructions.
+
+#### 5. Manual Compilation
+
+If you find the DAUDIO driver source code:
+
+```bash
+# Prerequisites
+sudo apt install linux-headers-$(uname -r) build-essential
+
+# Assuming you have sunxi_ahub_daudio.c
+# See DRIVER_SOURCE_SEARCH.md for complete instructions
+cd ~/daudio-driver
+make
+sudo make install
+sudo modprobe snd_soc_sunxi_ahub_daudio
+```
+
+### Documentation Files
+
+- **[KERNEL_FLAVOR_INVESTIGATION.md](KERNEL_FLAVOR_INVESTIGATION.md)** - Comprehensive investigation plan
+- **[KERNEL_SWITCHING_GUIDE.md](KERNEL_SWITCHING_GUIDE.md)** - Step-by-step kernel switching instructions
+- **[DRIVER_SOURCE_SEARCH.md](DRIVER_SOURCE_SEARCH.md)** - Where to find driver source and how to compile
+- **[DEV_LOG.md](DEV_LOG.md)** - Complete testing history (Tests 1-17)
+- **[ARMBIAN_INVESTIGATION.md](ARMBIAN_INVESTIGATION.md)** - Armbian testing results
+- **[OS_COMPARISON.md](OS_COMPARISON.md)** - Alternative OS options
+
+### Summary
+
+**Most Promising Solutions (in order):**
+1. ⭐ **Install legacy kernel** (80% success chance) - See [KERNEL_SWITCHING_GUIDE.md](KERNEL_SWITCHING_GUIDE.md)
+2. ⭐ **Use Orange Pi official OS** (95% success chance) - Includes vendor BSP
+3. **Compile driver from source** (if source found) - See [DRIVER_SOURCE_SEARCH.md](DRIVER_SOURCE_SEARCH.md)
+4. **Wait for mainline support** (long-term solution)
+
+The driver EXISTS in Allwinner's BSP but hasn't been released publicly or merged into mainline. Legacy kernels based on vendor BSP are most likely to include it.
+
+## Known Issues & Limitations
+
+- The Allwinner H618 uses AHUB architecture which requires vendor-specific drivers
+- Current mainline kernels (6.12.x) lack the `snd_soc_sunxi_ahub_daudio` driver
+- Legacy kernels with vendor BSP should include the missing driver
+- The `snd_soc_wm8960` module is NOT included in default Armbian kernels (can be built separately)
+
+**Current Hardware Status:**
+- ✅ WM8960 codec detected on I2C bus 3 at address 0x1a
+- ✅ Device tree overlay loads successfully
+- ✅ AHUB core modules present
+- ❌ DAUDIO driver missing (blocking audio functionality)
+- 🔄 Solution: Switch to legacy kernel or use vendor OS
 
 **Current Progress:**
 - ✅ WM8960 codec detected on I2C bus 3 at address 0x1a

@@ -1,0 +1,94 @@
+/dts-v1/;
+/plugin/;
+
+/*
+ * Orange Pi OS specific overlay for WM8960 Audio HAT
+ * 
+ * This overlay is for Orange Pi's official OS (6.1.31-sun50iw9 kernel).
+ * 
+ * NOTE: Enable I2C first with: overlays=pi-i2c1 wm8960-orangepi
+ * 
+ * LIMITATIONS:
+ * - This adds WM8960 codec to I2C bus for detection
+ * - Configures I2S pins (PI0-PI4)
+ * - Does NOT enable audio (DAUDIO driver missing in Orange Pi OS)
+ * - AHUB I2S nodes not exposed in Orange Pi's DTB
+ * 
+ * For audio to work, Orange Pi needs to release the DAUDIO driver.
+ */
+
+/ {
+	compatible = "xunlong,orangepi-zero2w", "allwinner,sun50i-h618";
+
+	/* Fixed clock for WM8960 MCLK */
+	fragment@0 {
+		target-path = "/";
+		__overlay__ {
+			wm8960_mclk: wm8960-mclk {
+				compatible = "fixed-clock";
+				#clock-cells = <0>;
+				clock-frequency = <24000000>;
+				clock-output-names = "wm8960-mclk";
+			};
+		};
+	};
+
+	/* Add WM8960 codec to I2C1 (requires pi-i2c1 overlay enabled first) */
+	fragment@1 {
+		target-path = "/soc/i2c@5002400";
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			wm8960: wm8960@1a {
+				compatible = "wlf,wm8960";
+				reg = <0x1a>;
+				#sound-dai-cells = <0>;
+				clocks = <&wm8960_mclk>;
+				clock-names = "mclk";
+				wlf,shared-lrclk;
+				status = "okay";
+			};
+		};
+	};
+
+	/* Configure I2S pins on PI0-PI4 for AHUB */
+	fragment@2 {
+		target-path = "/soc/pinctrl@300b000";
+		__overlay__ {
+			i2s0_wm8960_pins: i2s0-wm8960-pins {
+				pins = "PI0", "PI1", "PI2";
+				function = "i2s0";
+				drive-strength = <20>;
+				bias-disable;
+			};
+
+			i2s0_wm8960_dout: i2s0-wm8960-dout {
+				pins = "PI3";
+				function = "i2s0_dout";
+				drive-strength = <20>;
+				bias-disable;
+			};
+
+			i2s0_wm8960_din: i2s0-wm8960-din {
+				pins = "PI4";
+				function = "i2s0_din";
+				drive-strength = <20>;
+				bias-disable;
+			};
+		};
+	};
+
+	/* 
+	 * AUDIO PATH NOT AVAILABLE
+	 * 
+	 * Orange Pi OS DTB structure:
+	 * - Has: ahub1_plat (configured for HDMI only)
+	 * - Has: ahub1_mach (HDMI machine driver)
+	 * - Missing: Individual ahub-i2s1/2/3 nodes
+	 * - Missing: DAUDIO driver (snd_soc_sunxi_ahub_daudio)
+	 * 
+	 * Cannot create sound card without these components.
+	 * This overlay only provides hardware setup (I2C, pins, clock).
+	 */
+};
