@@ -61,36 +61,63 @@ check_prerequisites() {
 
 install_overlay() {
     log_info "Installing device tree overlay..."
-    
-    DTS_SOURCE="overlays-orangepi/sun50i-h618-wm8960-working.dts"
+
     OVERLAY_DIR="/boot/dtb-$(uname -r)/allwinner/overlay"
-    OVERLAY_NAME="sun50i-h618-wm8960-working.dtbo"
-    
+
+    # Detect SoC variant (H616 vs H618)
+    # Method 1: Check existing overlays in the directory
+    SOC_PREFIX=""
+    if ls "$OVERLAY_DIR"/sun50i-h618-*.dtbo >/dev/null 2>&1; then
+        SOC_PREFIX="h618"
+        log_info "Detected H618 SoC from existing overlays"
+    elif ls "$OVERLAY_DIR"/sun50i-h616-*.dtbo >/dev/null 2>&1; then
+        SOC_PREFIX="h616"
+        log_info "Detected H616 SoC from existing overlays"
+    else
+        # Method 2: Check base DTB name
+        BASE_DTB=$(find "/boot/dtb-$(uname -r)/allwinner/" -maxdepth 1 -name "sun50i-h6*.dtb" 2>/dev/null | head -1)
+        if echo "$BASE_DTB" | grep -q "h618"; then
+            SOC_PREFIX="h618"
+            log_info "Detected H618 SoC from base DTB"
+        elif echo "$BASE_DTB" | grep -q "h616"; then
+            SOC_PREFIX="h616"
+            log_info "Detected H616 SoC from base DTB"
+        else
+            # Default to H618 if detection fails
+            SOC_PREFIX="h618"
+            log_warning "Could not detect SoC variant, defaulting to H618"
+        fi
+    fi
+
+    DTS_SOURCE="overlays-orangepi/sun50i-${SOC_PREFIX}-wm8960-working.dts"
+    OVERLAY_NAME="sun50i-${SOC_PREFIX}-wm8960-working.dtbo"
+
     if [ ! -f "$DTS_SOURCE" ]; then
         log_error "Overlay source not found: $DTS_SOURCE"
+        log_error "Your board uses ${SOC_PREFIX} but overlay file is missing"
         exit 1
     fi
-    
+
     # Compile overlay
-    log_info "Compiling device tree overlay..."
+    log_info "Compiling device tree overlay for ${SOC_PREFIX}..."
     dtc -@ -I dts -O dtb -o "/tmp/$OVERLAY_NAME" "$DTS_SOURCE" || {
         log_error "Failed to compile overlay"
         exit 1
     }
-    
+
     # Backup existing overlay if present
     if [ -f "$OVERLAY_DIR/$OVERLAY_NAME" ]; then
         log_info "Backing up existing overlay..."
         cp "$OVERLAY_DIR/$OVERLAY_NAME" "$OVERLAY_DIR/${OVERLAY_NAME}.backup-$(date +%Y%m%d)"
     fi
-    
+
     # Install overlay
     cp "/tmp/$OVERLAY_NAME" "$OVERLAY_DIR/" || {
         log_error "Failed to install overlay"
         exit 1
     }
-    
-    log_info "Overlay installed successfully"
+
+    log_info "Overlay installed successfully: $OVERLAY_NAME"
 }
 
 install_service() {
@@ -142,7 +169,7 @@ print_next_steps() {
     echo "Next steps:"
     echo "1. Reboot your Orange Pi: sudo reboot"
     echo "2. After reboot, test audio with:"
-    echo "   speaker-test -D plughw:3,0 -c 2 -r 48000 -t sine -f 1000 -l 1"
+    echo "   speaker-test -D plughw:ahub0wm8960,0 -c 2 -r 48000 -t sine -f 1000 -l 1"
     echo ""
     echo "Notes:"
     echo "- Card 3 is the WM8960 (ahub0wm8960)"
@@ -164,3 +191,11 @@ install_alsa_config
 print_next_steps
 
 exit 0
+
+
+
+
+
+
+
+

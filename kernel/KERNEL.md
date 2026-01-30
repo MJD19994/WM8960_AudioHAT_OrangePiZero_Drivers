@@ -10,7 +10,7 @@ The easiest way is to use our precompiled kernel that includes WM8960 support.
 
 ```bash
 # Download kernel package (12MB)
-wget https://github.com/YOUR_USERNAME/WM8960_AudioHAT_OrangePiZero_Drivers/releases/download/v1.0/orangepi-zero2w-wm8960-kernel-6.1.31-orangepi.tar.gz
+wget https://github.com/MJD19994/WM8960_AudioHAT_OrangePiZero_Drivers/releases/download/v1.0/orangepi-zero2w-wm8960-kernel-6.1.31-orangepi.tar.gz
 
 # Extract
 tar -xzf orangepi-zero2w-wm8960-kernel-6.1.31-orangepi.tar.gz

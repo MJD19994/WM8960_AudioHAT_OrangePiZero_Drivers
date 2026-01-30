@@ -47,6 +47,13 @@ systemctl daemon-reload
 
 # Remove ALSA config (backup first)
 if [ -f /etc/asound.conf ]; then
+    # Preserve existing backup if it exists
+    if [ -f /etc/asound.conf.wm8960-backup ]; then
+        TIMESTAMP=$(date +%s)
+        log_info "Existing backup found, preserving as /etc/asound.conf.wm8960-backup.$TIMESTAMP"
+        mv /etc/asound.conf.wm8960-backup /etc/asound.conf.wm8960-backup.$TIMESTAMP
+    fi
+
     log_info "Backing up /etc/asound.conf to /etc/asound.conf.wm8960-backup"
     cp /etc/asound.conf /etc/asound.conf.wm8960-backup
     rm -f /etc/asound.conf

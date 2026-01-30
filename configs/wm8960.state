@@ -12,8 +12,8 @@ state.ahub0wm8960 {
 	control.2 {
 		iface MIXER
 		name 'Capture Volume'
-		value.0 39
-		value.1 39
+		value.0 45
+		value.1 45
 		comment {
 			access 'read write'
 			type INTEGER
@@ -21,8 +21,8 @@ state.ahub0wm8960 {
 			range '0 - 63'
 			dbmin -1725
 			dbmax 3000
-			dbvalue.0 1200
-			dbvalue.1 1200
+			dbvalue.0 1650
+			dbvalue.1 1650
 		}
 	}
 	control.3 {
@@ -106,7 +106,7 @@ state.ahub0wm8960 {
 	control.9 {
 		iface MIXER
 		name 'Right Input Boost Mixer RINPUT1 Volume'
-		value 0
+		value 2
 		comment {
 			access 'read write'
 			type INTEGER
@@ -114,13 +114,13 @@ state.ahub0wm8960 {
 			range '0 - 3'
 			dbmin 0
 			dbmax 2900
-			dbvalue.0 0
+			dbvalue.0 2000
 		}
 	}
 	control.10 {
 		iface MIXER
 		name 'Left Input Boost Mixer LINPUT1 Volume'
-		value 0
+		value 2
 		comment {
 			access 'read write'
 			type INTEGER
@@ -128,7 +128,7 @@ state.ahub0wm8960 {
 			range '0 - 3'
 			dbmin 0
 			dbmax 2900
-			dbvalue.0 0
+			dbvalue.0 2000
 		}
 	}
 	control.11 {
@@ -442,8 +442,8 @@ state.ahub0wm8960 {
 	control.37 {
 		iface MIXER
 		name 'ADC PCM Capture Volume'
-		value.0 195
-		value.1 195
+		value.0 210
+		value.1 210
 		comment {
 			access 'read write'
 			type INTEGER
@@ -451,8 +451,8 @@ state.ahub0wm8960 {
 			range '0 - 255'
 			dbmin -9999999
 			dbmax 3000
-			dbvalue.0 0
-			dbvalue.1 0
+			dbvalue.0 750
+			dbvalue.1 750
 		}
 	}
 	control.38 {
@@ -600,7 +600,7 @@ state.ahub0wm8960 {
 	control.50 {
 		iface MIXER
 		name 'Left Input Mixer Boost Switch'
-		value false
+		value true
 		comment {
 			access 'read write'
 			type BOOLEAN
@@ -610,7 +610,7 @@ state.ahub0wm8960 {
 	control.51 {
 		iface MIXER
 		name 'Right Input Mixer Boost Switch'
-		value false
+		value true
 		comment {
 			access 'read write'
 			type BOOLEAN

@@ -101,7 +101,7 @@ COMPATIBILITY:
 - Orange Pi Zero 2W (H618)
 - Orange Pi OS 1.0.2 Bookworm
 
-For support, see: https://github.com/YOUR_USERNAME/WM8960_AudioHAT_OrangePiZero_Drivers
+For support, see: https://github.com/MJD19994/WM8960_AudioHAT_OrangePiZero_Drivers
 EOFREADME
 
 # Create tarball

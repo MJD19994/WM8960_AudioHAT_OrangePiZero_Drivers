@@ -14,6 +14,12 @@ I2C_BUS=2
 WM8960_ADDR=0x1a
 DRIVER_PATH="/sys/bus/i2c/drivers/wm8960"
 
+# Build device identifier (e.g., "$DEVICE_ID" from I2C_BUS=2 and WM8960_ADDR=0x1a)
+# Allow override via environment variable
+if [ -z "$DEVICE_ID" ]; then
+    DEVICE_ID="${I2C_BUS}-$(printf '%04x' $((WM8960_ADDR)))"
+fi
+
 # Register addresses
 CLOCK1=0x04
 POWER2=0x1a
@@ -36,12 +42,12 @@ wait_for_device() {
     local max_wait=10
     local count=0
 
-    while [ ! -e "$DRIVER_PATH/2-001a" ] && [ $count -lt $max_wait ]; do
+    while [ ! -e "$DRIVER_PATH/$DEVICE_ID" ] && [ $count -lt $max_wait ]; do
         sleep 1
         ((count++))
     done
 
-    if [ ! -e "$DRIVER_PATH/2-001a" ]; then
+    if [ ! -e "$DRIVER_PATH/$DEVICE_ID" ]; then
         log "ERROR: WM8960 device not found after ${max_wait}s"
         exit 1
     fi
@@ -61,7 +67,7 @@ configure_pll() {
 
     # Unbind driver to access I2C directly
     log "Temporarily unbinding driver..."
-    echo "2-001a" > "$DRIVER_PATH/unbind" 2>/dev/null || true
+    echo "$DEVICE_ID" > "$DRIVER_PATH/unbind" 2>/dev/null || true
     sleep 0.2
 
     # Configure PLL registers
@@ -82,7 +88,7 @@ configure_pll() {
 
     # Rebind driver
     log "Rebinding driver..."
-    echo "2-001a" > "$DRIVER_PATH/bind" || { log "ERROR: Failed to rebind driver"; exit 1; }
+    echo "$DEVICE_ID" > "$DRIVER_PATH/bind" || { log "ERROR: Failed to rebind driver"; exit 1; }
     sleep 1
 
     log "PLL configuration complete!"
@@ -91,16 +97,39 @@ configure_pll() {
 configure_mixer() {
     log "Configuring mixer settings..."
 
-    # Configure audio routing and volumes
-    amixer -c 3 sset "Left Output Mixer PCM" on >/dev/null 2>&1
-    amixer -c 3 sset "Right Output Mixer PCM" on >/dev/null 2>&1
-    amixer -c 3 sset "Headphone" 121 >/dev/null 2>&1
-    amixer -c 3 sset "Speaker" 121 >/dev/null 2>&1
-    amixer -c 3 sset "Speaker AC" 0 >/dev/null 2>&1
-    amixer -c 3 sset "Speaker DC" 0 >/dev/null 2>&1
-    amixer -c 3 sset "Mono Output Mixer Left" off >/dev/null 2>&1
-    amixer -c 3 sset "Mono Output Mixer Right" off >/dev/null 2>&1
-    amixer -c 3 sset "Playback" 255 >/dev/null 2>&1
+    # Detect WM8960 card number (allow override via environment variable)
+    local CARD_NUM
+    if [ -n "$WM8960_CARD" ]; then
+        CARD_NUM="$WM8960_CARD"
+        log "Using WM8960_CARD from environment: $CARD_NUM"
+    else
+        # Parse aplay -l to find WM8960 card
+        CARD_NUM=$(aplay -l 2>/dev/null | grep -i "wm8960\|ahub0wm8960" | head -1 | sed -n 's/^card \([0-9]\+\):.*/\1/p')
+
+        if [ -z "$CARD_NUM" ]; then
+            log "ERROR: Could not detect WM8960 sound card. Set WM8960_CARD environment variable or check if device is present."
+            return 1
+        fi
+
+        log "Detected WM8960 card: $CARD_NUM"
+    fi
+
+    # Configure playback routing and volumes
+    amixer -c "$CARD_NUM" sset "Left Output Mixer PCM" on >/dev/null 2>&1
+    amixer -c "$CARD_NUM" sset "Right Output Mixer PCM" on >/dev/null 2>&1
+    amixer -c "$CARD_NUM" sset "Headphone" 121 >/dev/null 2>&1
+    amixer -c "$CARD_NUM" sset "Speaker" 121 >/dev/null 2>&1
+    amixer -c "$CARD_NUM" sset "Speaker AC" 0 >/dev/null 2>&1
+    amixer -c "$CARD_NUM" sset "Speaker DC" 0 >/dev/null 2>&1
+    amixer -c "$CARD_NUM" sset "Mono Output Mixer Left" off >/dev/null 2>&1
+    amixer -c "$CARD_NUM" sset "Mono Output Mixer Right" off >/dev/null 2>&1
+    amixer -c "$CARD_NUM" sset "Playback" 255 >/dev/null 2>&1
+
+    # Configure capture/recording settings
+    amixer -c "$CARD_NUM" sset "Capture" 45 >/dev/null 2>&1
+    amixer -c "$CARD_NUM" cset numid=37 210,210 >/dev/null 2>&1  # ADC PCM Capture Volume
+    amixer -c "$CARD_NUM" cset numid=10 2 >/dev/null 2>&1         # Left Input Boost Mixer LINPUT1 Volume
+    amixer -c "$CARD_NUM" cset numid=9 2 >/dev/null 2>&1          # Right Input Boost Mixer RINPUT1 Volume
 
     log "Mixer configured!"
 }
