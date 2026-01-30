@@ -1,0 +1,18 @@
+[Unit]
+Description=WM8960 Audio HAT PLL Configuration
+After=sound.target
+Requires=sound.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/wm8960-pll-config.sh
+RemainAfterExit=yes
+StandardOutput=journal
+StandardError=journal
+
+# Restart on failure
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target

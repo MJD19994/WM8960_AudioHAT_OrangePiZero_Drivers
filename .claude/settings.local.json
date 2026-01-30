@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ssh:*)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(git clone:*)",
+      "WebFetch(domain:cdn.sparkfun.com)",
+      "Bash(ls:*)",
+      "Bash(scp:*)"
+    ]
+  }
+}
