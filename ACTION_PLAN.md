@@ -19,7 +19,37 @@ Before purchasing alternative hardware, we need to exhaust these final possibili
 
 ## Immediate Actions (Do These Now)
 
-### On Your Orange Pi (Running Orange Pi OS):
+### **PRIORITY 1**: Check Google Drive Source 🔥
+
+Orange Pi stores source code on Google Drive (not on their main website):
+**https://drive.google.com/drive/folders/1vsbWC8RqeLDxNBWgYmiKxOYcF6l9iJq1**
+
+**What to download:**
+1. Look for kernel source packages (`.tar.gz` files)
+2. Look for SDK or BSP packages
+3. Download Linux source code for Orange Pi Zero 2W / sun50iw9 / H618
+
+**What to search for after download:**
+```bash
+tar -xzf [downloaded-package].tar.gz
+cd linux-*/
+
+# THE CRITICAL FILE WE NEED:
+find . -name "snd_sunxi_ahub_daudio.c"
+
+# Alternative paths to check:
+find . -path "*/sound/soc/sunxi_v2/*" -name "*daudio*"
+find . -path "*/sound/soc/sunxi*" -name "*ahub*.c"
+
+# Check device tree source:
+cat arch/arm64/boot/dts/allwinner/sun50i-h618-orangepi-zero2w.dts | grep -A 30 "ahub"
+```
+
+**See complete guide**: [GOOGLE_DRIVE_SOURCE_CHECK.md](GOOGLE_DRIVE_SOURCE_CHECK.md)
+
+---
+
+### On Your Orange Pi (Already Done ✅):
 
 ```bash
 # 1. Run exhaustive search

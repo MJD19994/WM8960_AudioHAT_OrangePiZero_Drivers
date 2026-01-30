@@ -9,49 +9,59 @@
 
 ## Investigation Checklist
 
-### 1. Orange Pi Official Source Packages ⏳
+### 1. Orange Pi Official Source Packages 🔥 **CRITICAL**
+
+**FOUND**: Orange Pi stores source code on **Google Drive**!
+**URL**: https://drive.google.com/drive/folders/1vsbWC8RqeLDxNBWgYmiKxOYcF6l9iJq1
 
 **What to check:**
-- Orange Pi website downloads section
-- Official kernel source packages (not just GitHub)
+- Kernel source packages (tar.gz files)
 - SDK packages
 - BSP (Board Support Package) downloads
+- Build system tools
 
 **Actions:**
-- [ ] Visit: http://www.orangepi.org/orangepiwiki/index.php/Orange_Pi_Zero_2W
-- [ ] Download: Linux Source Code package (if available)
+- [x] Found: Google Drive source location
+- [ ] Download: Linux Source Code package from Drive
 - [ ] Search inside: `sound/soc/sunxi_v2/` for `*daudio*` files
-- [ ] Check: Makefile and Kconfig for DAUDIO references
+- [ ] Check: Device tree source for disabled ahub2/ahub3 nodes
 
 **Commands to run after download:**
 ```bash
-tar -xzf OrangePi_*.tar.gz
+tar -xzf [downloaded-package].tar.gz
 cd linux-*/
+
+# Search for DAUDIO driver
 find . -name "*daudio*"
-grep -r "sunxi.*daudio" sound/soc/
-cat sound/soc/sunxi_v2/Makefile 2>/dev/null
-cat sound/soc/sunxi_v2/Kconfig 2>/dev/null
+find . -path "*/sound/soc/sunxi_v2/*" -name "*.c"
+
+# Check device tree source
+cat arch/arm64/boot/dts/allwinner/sun50i-h618-orangepi-zero2w.dts | grep -A 20 "ahub"
 ```
+
+**See detailed instructions**: [GOOGLE_DRIVE_SOURCE_CHECK.md](GOOGLE_DRIVE_SOURCE_CHECK.md)
 
 ---
 
-### 2. Orange Pi OS - 5.4 Kernel Version ⏳
+### 2. Orange Pi OS - 5.4 Kernel Version ✅ **CHECKED**
 
-**What to check:**
-We tested 6.1 kernel, but 5.4 is also available. Older kernels sometimes have drivers that newer ones drop.
+**Result**: NO 5.4 kernel available
 
-**Actions:**
-- [ ] Download Orange Pi OS with 5.4 kernel
-- [ ] Flash to SD card (or spare SD card)
-- [ ] Boot and check for DAUDIO
+**What we found:**
+- Only ONE kernel version: `linux-image-next-sun50iw9 6.1.31`
+- No legacy/edge kernel flavors
+- No alternative kernel versions in APT repository
 
-**Commands after booting 5.4:**
+**Commands run:**
 ```bash
-uname -r
-find /lib/modules/$(uname -r) -name "*daudio*"
-ls /lib/modules/$(uname -r)/kernel/sound/soc/
-zcat /proc/config.gz | grep DAUDIO
+apt search linux-image | grep orangepi
+# Result: Only 6.1.31-sun50iw9 available
+
+dpkg -l | grep linux-image
+# Result: ii  linux-image-next-sun50iw9  1.0.2  arm64
 ```
+
+**Conclusion**: Orange Pi OS only provides single kernel version. No alternative kernels to test.
 
 ---
 
@@ -244,6 +254,40 @@ Post comprehensive question to multiple forums with all findings.
 ---
 
 ## Current Findings Summary
+
+### ✅ Completed Investigations
+
+**Device Tree Analysis (CRITICAL DISCOVERY):**
+```
+DTB decompiled and analyzed: /tmp/dtb-analysis.dts
+
+AHUB Instances Found:
+1. ahub_dam_plat@5097000 - Digital Audio Manager (DAM)
+   Compatible: "allwinner,sunxi-snd-plat-ahub_dam"
+   Sound card: "ahubdam"
+   
+2. ahub1_plat - HDMI Audio Path
+   Compatible: "allwinner,sunxi-snd-plat-ahub"
+   Sound card: "ahubhdmi"
+   DMA channels: tx/rx
+   Status: okay (working - HDMI audio functional)
+
+MISSING: ahub2, ahub3, or any external I2S nodes!
+```
+
+**Smoking Gun**: The device tree **intentionally** only defines AHUB for DAM and HDMI. 
+**No nodes exist** for external I2S devices. Even if DAUDIO driver existed, it has nothing to bind to.
+
+**Kernel Availability:**
+- ❌ Only 6.1.31-sun50iw9 available
+- ❌ No 5.4 kernel option
+- ❌ No legacy/edge flavors
+
+**Google Drive Source:**
+- ✅ Found: Orange Pi stores source on Google Drive
+- ⏳ Pending: Download and check for DAUDIO source code
+
+---
 
 ### Confirmed Missing (Tested):
 - ❌ DietPi 6.12.66-current-sunxi64
