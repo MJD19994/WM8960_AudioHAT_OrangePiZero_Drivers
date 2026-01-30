@@ -28,7 +28,7 @@ Complete audio support for WM8960-based audio HATs (including ReSpeaker 2-Mic HA
 ### Installation
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/WM8960_AudioHAT_OrangePiZero_Drivers
+git clone https://github.com/MJD19994/WM8960_AudioHAT_OrangePiZero_Drivers
 cd WM8960_AudioHAT_OrangePiZero_Drivers
 sudo ./install.sh
 sudo reboot
