@@ -10,9 +10,5 @@ RemainAfterExit=yes
 StandardOutput=journal
 StandardError=journal
 
-# Restart on failure
-Restart=on-failure
-RestartSec=5s
-
 [Install]
 WantedBy=multi-user.target

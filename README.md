@@ -185,7 +185,12 @@ sudo systemctl disable wm8960-audio.service
 
 # Re-enable service
 sudo systemctl enable wm8960-audio.service
+
+# Restart after a failure (the service does not auto-restart)
+sudo systemctl restart wm8960-audio.service
 ```
+
+**Note:** The PLL configuration service runs once at boot (`Type=oneshot`) and does not automatically restart on failure. If the service fails, check the logs with `journalctl -u wm8960-audio.service` and restart it manually.
 
 ## Troubleshooting
 
