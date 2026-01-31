@@ -115,10 +115,15 @@ WM8960_AudioHAT_OrangePiZero_Drivers/
 ├── configs/                            # ALSA configuration
 │   ├── asound.conf                    # ALSA config (sets default device)
 │   └── wm8960.state                   # Mixer state
+├── kernel/                             # Kernel resources
+│   ├── KERNEL.md                      # Kernel build/install guide
+│   └── *.tar.gz                       # Pre-compiled kernel with WM8960 support
+├── scripts/                            # Utility scripts
+│   ├── test-audio.sh                  # Quick audio test
+│   └── extract-kernel.sh             # Kernel extraction helper
 └── docs/                               # Documentation
-    ├── INSTALLATION.md
-    ├── TROUBLESHOOTING.md
-    └── KERNEL.md
+    └── hardware/                       # Hardware reference
+        └── OrangePi_Zero2w_H618_User Manual_v1.3.pdf
 ```
 
 ## Audio Configuration
@@ -194,7 +199,7 @@ sudo systemctl restart wm8960-audio.service
 
 ## Troubleshooting
 
-See [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) for detailed troubleshooting steps.
+If the steps below don't help, check the service logs with `journalctl -u wm8960-audio.service`.
 
 ### Common Issues
 
@@ -217,7 +222,7 @@ See [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) for detailed troubleshoot
 
 ### Kernel Requirements
 
-This driver requires WM8960 codec support compiled into the Orange Pi kernel. See [docs/KERNEL.md](docs/KERNEL.md) for:
+This driver requires WM8960 codec support compiled into the Orange Pi kernel. See [kernel/KERNEL.md](kernel/KERNEL.md) for:
 - Verifying kernel support
 - Compiling custom kernel with WM8960
 - Installing kernel modules
