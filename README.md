@@ -137,17 +137,17 @@ Key mixer controls for the WM8960:
 CARD_NUM=$(aplay -l | grep ahub0wm8960 | head -1 | sed -n 's/^card \([0-9]\+\):.*/\1/p')
 
 # Set headphone volume (0-127)
-amixer -D ahub0wm8960 sset 'Headphone' 121
+amixer -c ahub0wm8960 sset 'Headphone' 121
 
 # Set speaker volume (0-127)
-amixer -D ahub0wm8960 sset 'Speaker' 121
+amixer -c ahub0wm8960 sset 'Speaker' 121
 
 # Enable PCM routing
-amixer -D ahub0wm8960 sset 'Left Output Mixer PCM' on
-amixer -D ahub0wm8960 sset 'Right Output Mixer PCM' on
+amixer -c ahub0wm8960 sset 'Left Output Mixer PCM' on
+amixer -c ahub0wm8960 sset 'Right Output Mixer PCM' on
 
 # Set playback volume (0-255)
-amixer -D ahub0wm8960 sset 'Playback' 255
+amixer -c ahub0wm8960 sset 'Playback' 255
 
 # Or use card number if needed
 amixer -c $CARD_NUM sset 'Headphone' 121
@@ -168,7 +168,7 @@ arecord -r 48000 -c 2 -f S16_LE -t wav -d 5 recording.wav
 aplay -D plughw:ahub0wm8960,0 recording.wav
 
 # Adjust capture volume (0-63, default: 45)
-amixer -D ahub0wm8960 sset 'Capture' 50
+amixer -c ahub0wm8960 sset 'Capture' 50
 ```
 
 **Note:** Use 48kHz sample rate for best speaker playback compatibility. Lower sample rates (16kHz, 8kHz) work for headphones but may not play through the speaker.
@@ -207,7 +207,7 @@ If the steps below don't help, check the service logs with `journalctl -u wm8960
 1. Check service status: `systemctl status wm8960-audio.service`
 2. Check dmesg: `dmesg | grep wm8960`
 3. Verify card detected: `aplay -l` (look for "ahub0wm8960")
-4. Check mixer: `amixer -D ahub0wm8960`
+4. Check mixer: `amixer -c ahub0wm8960`
 
 **"slave mode, but proceeding with no clock configuration" error:**
 - This is normal before the PLL configuration runs
@@ -215,8 +215,8 @@ If the steps below don't help, check the service logs with `journalctl -u wm8960
 - If it persists, the service may have failed
 
 **Audio too quiet:**
-- Increase mixer volumes: `amixer -D ahub0wm8960 sset 'Headphone' 127`
-- Check playback volume: `amixer -D ahub0wm8960 sset 'Playback' 255`
+- Increase mixer volumes: `amixer -c ahub0wm8960 sset 'Headphone' 127`
+- Check playback volume: `amixer -c ahub0wm8960 sset 'Playback' 255`
 
 ## Advanced Topics
 

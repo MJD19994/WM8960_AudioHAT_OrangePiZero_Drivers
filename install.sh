@@ -62,10 +62,15 @@ check_prerequisites() {
 install_overlay() {
     log_info "Installing device tree overlay..."
 
-    OVERLAY_DIR="/boot/dtb-$(uname -r)/allwinner/overlay"
+    # Find the overlay directory (kernel name in path may differ from uname -r)
+    OVERLAY_DIR=$(find /boot -type d -name "overlay" -path "*/allwinner/*" 2>/dev/null | head -1)
+    if [ -z "$OVERLAY_DIR" ]; then
+        log_error "Could not find allwinner overlay directory under /boot"
+        exit 1
+    fi
+    log_info "Found overlay directory: $OVERLAY_DIR"
 
-    # Detect SoC variant (H616 vs H618)
-    # Method 1: Check existing overlays in the directory
+    # Detect SoC variant (H616 vs H618) from existing overlays
     SOC_PREFIX=""
     if ls "$OVERLAY_DIR"/sun50i-h618-*.dtbo >/dev/null 2>&1; then
         SOC_PREFIX="h618"
@@ -74,8 +79,9 @@ install_overlay() {
         SOC_PREFIX="h616"
         log_info "Detected H616 SoC from existing overlays"
     else
-        # Method 2: Check base DTB name
-        BASE_DTB=$(find "/boot/dtb-$(uname -r)/allwinner/" -maxdepth 1 -name "sun50i-h6*.dtb" 2>/dev/null | head -1)
+        # Fallback: check base DTB files
+        ALLWINNER_DIR=$(dirname "$OVERLAY_DIR")
+        BASE_DTB=$(find "$ALLWINNER_DIR" -maxdepth 1 -name "sun50i-h6*.dtb" 2>/dev/null | head -1)
         if echo "$BASE_DTB" | grep -q "h618"; then
             SOC_PREFIX="h618"
             log_info "Detected H618 SoC from base DTB"
@@ -83,9 +89,8 @@ install_overlay() {
             SOC_PREFIX="h616"
             log_info "Detected H616 SoC from base DTB"
         else
-            # Default to H618 if detection fails
             SOC_PREFIX="h618"
-            log_warning "Could not detect SoC variant, defaulting to H618"
+            log_warn "Could not detect SoC variant, defaulting to H618"
         fi
     fi
 
