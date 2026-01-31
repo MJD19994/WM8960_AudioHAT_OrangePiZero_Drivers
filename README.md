@@ -30,11 +30,22 @@ Complete audio support for WM8960-based audio HATs (including ReSpeaker 2-Mic HA
 
 ## Quick Start
 
-### Installation
+### Quick Setup (Recommended)
+
+Installs everything in one step — kernel with WM8960 support (if needed) and all driver components:
 
 ```bash
-sudo apt update & updgrade
+git clone https://github.com/MJD19994/WM8960_AudioHAT_OrangePiZero_Drivers
+cd WM8960_AudioHAT_OrangePiZero_Drivers
+sudo ./quick-setup.sh
+sudo reboot
 ```
+
+If the kernel already has WM8960 support, the kernel step is automatically skipped.
+
+### Driver-Only Installation
+
+If you've already installed the kernel with WM8960 support separately:
 
 ```bash
 git clone https://github.com/MJD19994/WM8960_AudioHAT_OrangePiZero_Drivers
@@ -98,13 +109,27 @@ This package provides:
    - Optimal headphone/speaker volumes
    - Proper audio routing
 
+## Uninstalling
+
+To remove the driver, overlay, and ALSA configuration:
+
+```bash
+sudo ./uninstall.sh
+sudo reboot
+```
+
+This safely removes the systemd service, device tree overlay, and ALSA config files. Your existing ALSA configuration is backed up before removal.
+
+**Note:** The uninstall script does not roll back kernel changes. The WM8960-enabled kernel is safe to keep — it does not affect other audio devices or system stability. If you need to revert to a different kernel, you will need to install one manually.
+
 ## Project Structure
 
 ```
 WM8960_AudioHAT_OrangePiZero_Drivers/
 ├── README.md                           # This file
 ├── LICENSE                             # License
-├── install.sh                          # Installation script (auto-detects H616/H618)
+├── quick-setup.sh                      # All-in-one setup (kernel + driver)
+├── install.sh                          # Driver-only installation (auto-detects H616/H618)
 ├── uninstall.sh                        # Uninstallation script
 ├── overlays-orangepi/                  # Device tree overlays
 │   ├── sun50i-h616-wm8960-working.dts # H616 variant
