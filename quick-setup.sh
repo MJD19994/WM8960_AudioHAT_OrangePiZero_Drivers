@@ -102,11 +102,11 @@ install_kernel() {
     
     # Update Image symlink to point to new kernel
     log_info "Updating Image symlink..."
-    ln -sf /boot/vmlinuz-${VERSION} /boot/Image
+    ln -sf vmlinuz-${VERSION} /boot/Image
     
     # Update uInitrd symlink to point to new initramfs
     log_info "Updating uInitrd symlink..."
-    ln -sf /boot/uInitrd-${VERSION} /boot/uInitrd
+    ln -sf uInitrd-${VERSION} /boot/uInitrd
     
     # Note: dtb symlink is NOT modified - Orange Pi device trees are compatible
     log_info "Keeping original Orange Pi device trees (compatible)"
