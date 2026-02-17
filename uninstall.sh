@@ -61,6 +61,19 @@ fi
 
 rm -f /etc/wm8960.state
 
+# Remove overlay from orangepiEnv.txt
+ENV_FILE="/boot/orangepiEnv.txt"
+OVERLAY_ENTRY="wm8960-working"
+
+if [ -f "$ENV_FILE" ] && grep -q "$OVERLAY_ENTRY" "$ENV_FILE"; then
+    log_info "Removing overlay from orangepiEnv.txt..."
+    # Remove the entry from the overlays line (handle both "only entry" and "one of many")
+    CURRENT_OVERLAYS=$(grep "^overlays=" "$ENV_FILE" | sed 's/^overlays=//')
+    NEW_OVERLAYS=$(echo "$CURRENT_OVERLAYS" | sed "s/ *${OVERLAY_ENTRY}//;s/^ *//;s/ *$//;s/  */ /g")
+    sed -i "s/^overlays=.*/overlays=${NEW_OVERLAYS}/" "$ENV_FILE"
+    log_info "Updated: $(grep '^overlays=' "$ENV_FILE")"
+fi
+
 log_info "Uninstallation complete!"
-log_warn "Device tree overlay remains in /boot - remove manually if needed"
+log_warn "Device tree overlay .dtbo file remains in /boot - remove manually if needed"
 log_info "Reboot recommended"

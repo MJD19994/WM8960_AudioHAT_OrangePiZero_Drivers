@@ -26,8 +26,10 @@ log_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
 check_root() {
-    if [ "$EUID" -ne 0 ]; then 
+    if [ "$EUID" -ne 0 ]; then
         log_error "This script must be run as root"
         exit 1
     fi
@@ -48,13 +50,19 @@ check_prerequisites() {
     KERNEL_VER=$(uname -r)
     log_info "Detected kernel: $KERNEL_VER"
     
-    if [[ ! "$KERNEL_VER" =~ "6.1.31-orangepi" ]]; then
-        log_warn "This installation was tested on kernel 6.1.31-orangepi"
+    if [[ ! "$KERNEL_VER" =~ "6.1.31" ]]; then
+        log_warn "This installation was tested on kernel 6.1.31"
         log_warn "Your kernel is: $KERNEL_VER"
-        read -p "Continue anyway? (y/N) " -n 1 -r
-        echo
-        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-            exit 1
+        if [ -t 0 ]; then
+            # Interactive terminal — ask user
+            read -p "Continue anyway? (y/N) " -n 1 -r
+            echo
+            if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+                exit 1
+            fi
+        else
+            # Non-interactive (called from quick-setup.sh) — warn and continue
+            log_warn "Non-interactive mode, continuing anyway..."
         fi
     fi
 }
@@ -94,7 +102,7 @@ install_overlay() {
         fi
     fi
 
-    DTS_SOURCE="overlays-orangepi/sun50i-${SOC_PREFIX}-wm8960-working.dts"
+    DTS_SOURCE="$SCRIPT_DIR/overlays-orangepi/sun50i-${SOC_PREFIX}-wm8960-working.dts"
     OVERLAY_NAME="sun50i-${SOC_PREFIX}-wm8960-working.dtbo"
 
     if [ ! -f "$DTS_SOURCE" ]; then
@@ -123,20 +131,47 @@ install_overlay() {
     }
 
     log_info "Overlay installed successfully: $OVERLAY_NAME"
+
+    # Register overlay in orangepiEnv.txt so bootloader loads it
+    OVERLAY_ENTRY="wm8960-working"
+    ENV_FILE="/boot/orangepiEnv.txt"
+
+    if [ -f "$ENV_FILE" ]; then
+        CURRENT_OVERLAYS=$(grep "^overlays=" "$ENV_FILE" | sed 's/^overlays=//')
+
+        if echo "$CURRENT_OVERLAYS" | grep -qw "$OVERLAY_ENTRY"; then
+            log_info "Overlay already registered in orangepiEnv.txt"
+        else
+            if [ -z "$CURRENT_OVERLAYS" ]; then
+                # No overlays line or empty — add it
+                if grep -q "^overlays=" "$ENV_FILE"; then
+                    sed -i "s/^overlays=.*/overlays=${OVERLAY_ENTRY}/" "$ENV_FILE"
+                else
+                    echo "overlays=${OVERLAY_ENTRY}" >> "$ENV_FILE"
+                fi
+            else
+                # Append to existing overlays
+                sed -i "s/^overlays=.*/overlays=${CURRENT_OVERLAYS} ${OVERLAY_ENTRY}/" "$ENV_FILE"
+            fi
+            log_info "Overlay registered in orangepiEnv.txt: $(grep '^overlays=' "$ENV_FILE")"
+        fi
+    else
+        log_warn "orangepiEnv.txt not found — overlay must be loaded manually"
+    fi
 }
 
 install_service() {
     log_info "Installing PLL configuration service..."
     
     # Install script
-    cp service/wm8960-pll-config.sh /usr/local/bin/ || {
+    cp "$SCRIPT_DIR/service/wm8960-pll-config.sh" /usr/local/bin/ || {
         log_error "Failed to copy configuration script"
         exit 1
     }
     chmod +x /usr/local/bin/wm8960-pll-config.sh
     
     # Install service file
-    cp service/wm8960-audio.service /etc/systemd/system/ || {
+    cp "$SCRIPT_DIR/service/wm8960-audio.service" /etc/systemd/system/ || {
         log_error "Failed to copy service file"
         exit 1
     }
@@ -155,13 +190,13 @@ install_alsa_config() {
     log_info "Installing ALSA configuration..."
     
     # Install ALSA config
-    if [ -f "configs/asound.conf" ]; then
-        cp configs/asound.conf /etc/asound.conf || log_warn "Failed to install asound.conf"
+    if [ -f "$SCRIPT_DIR/configs/asound.conf" ]; then
+        cp "$SCRIPT_DIR/configs/asound.conf" /etc/asound.conf || log_warn "Failed to install asound.conf"
     fi
-    
+
     # Install mixer state
-    if [ -f "configs/wm8960.state" ]; then
-        cp configs/wm8960.state /etc/ || log_warn "Failed to install mixer state"
+    if [ -f "$SCRIPT_DIR/configs/wm8960.state" ]; then
+        cp "$SCRIPT_DIR/configs/wm8960.state" /etc/ || log_warn "Failed to install mixer state"
     fi
     
     log_info "ALSA configuration installed"
@@ -196,10 +231,6 @@ install_alsa_config
 print_next_steps
 
 exit 0
-
-
-
-
 
 
 

@@ -145,7 +145,8 @@ WM8960_AudioHAT_OrangePiZero_Drivers/
 │   └── *.tar.gz                       # Pre-compiled kernel with WM8960 support
 ├── scripts/                            # Utility scripts
 │   ├── test-audio.sh                  # Quick audio test
-│   └── extract-kernel.sh             # Kernel extraction helper
+│   ├── install-kernel.sh             # Kernel installation (used by quick-setup)
+│   └── extract-kernel.sh            # Build tool: package kernel from device
 └── docs/                               # Documentation
     └── hardware/                       # Hardware reference
         └── OrangePi_Zero2w_H618_User Manual_v1.3.pdf
