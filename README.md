@@ -24,7 +24,7 @@ Complete audio support for WM8960-based audio HATs (including ReSpeaker 2-Mic HA
 - Other WM8960-based audio HATs
 
 **Requirements:**
-- Orange Pi OS 1.0.2 Bookworm (kernel 6.1.31-orangepi)
+- [Orange Pi OS 1.0.2 Bookworm (kernel 6.1.31-orangepi)](https://drive.google.com/drive/folders/1cvPUtPOmGfOSxilAHUgq_UqZK5HmzH0t)
 - WM8960 codec support compiled into kernel (See KERNEL.md)
 - I2C tools installed
 
