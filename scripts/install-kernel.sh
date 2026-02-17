@@ -35,11 +35,17 @@ cp "$KERNEL_DIR/config-${VERSION}" /boot/
 # Install modules
 echo "Installing modules..."
 if [ -d "$KERNEL_DIR/modules/sound" ]; then
-    cp -r "$KERNEL_DIR/modules/sound" /lib/modules/${VERSION}/kernel/ || true
+    if [ -d "/lib/modules/${VERSION}/kernel" ]; then
+        cp -r "$KERNEL_DIR/modules/sound" /lib/modules/${VERSION}/kernel/ || echo "Warning: Failed to copy sound modules"
+    else
+        echo "Warning: Target module directory /lib/modules/${VERSION}/kernel does not exist"
+    fi
 fi
 
 if [ -d "$KERNEL_DIR/modules" ]; then
-    cp "$KERNEL_DIR/modules/modules."* /lib/modules/${VERSION}/ 2>/dev/null || true
+    if ls "$KERNEL_DIR/modules/modules."* >/dev/null 2>&1; then
+        cp "$KERNEL_DIR/modules/modules."* /lib/modules/${VERSION}/ || echo "Warning: Failed to copy module dependency files"
+    fi
 fi
 
 # Update module dependencies
