@@ -62,6 +62,12 @@ check_prerequisites() {
 check_wm8960_support() {
     log_info "Checking for WM8960 codec support..."
     
+    # Check loaded modules first (fastest check if module is already loaded)
+    if lsmod | grep -qw wm8960; then
+        log_info "WM8960 module is loaded"
+        return 0
+    fi
+    
     # Check if wm8960 module exists
     if modinfo wm8960 &> /dev/null; then
         log_info "WM8960 module found in kernel"
@@ -71,12 +77,6 @@ check_wm8960_support() {
     # Check if it's built into the kernel (not as module)
     if [ -f "/boot/config-$(uname -r)" ] && grep -q "CONFIG_SND_SOC_WM8960=y" "/boot/config-$(uname -r)" 2>/dev/null; then
         log_info "WM8960 codec built into kernel"
-        return 0
-    fi
-    
-    # Check loaded modules
-    if lsmod | grep -q wm8960; then
-        log_info "WM8960 module is loaded"
         return 0
     fi
     
