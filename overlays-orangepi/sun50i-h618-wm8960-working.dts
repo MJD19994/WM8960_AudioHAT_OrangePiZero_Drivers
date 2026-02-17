@@ -10,7 +10,7 @@
  * 1. Configures PI1-PI4 pins for I2S0 (BCLK, LRCK, DOUT, DIN)
  * 2. Adds AHUB0 platform device for external I2S
  * 3. Adds AHUB0 machine driver binding WM8960 codec
- * 4. Enables I2C2 bus and adds WM8960 codec at address 0x1a
+ * 4. Enables I2C1 (i2c@5002400, Linux bus 2) and adds WM8960 codec at address 0x1a
  */
 
 / {

@@ -121,7 +121,7 @@ patch_dtb() {
     trap "rm -rf '$WORK_DIR'" EXIT
 
     log_info "Compiling WM8960 overlay..."
-    dtc -@ -I dts -O dtb -o "$WORK_DIR/wm8960.dtbo" "$DTS_SOURCE" 2>/dev/null || {
+    dtc -@ -I dts -O dtb -o "$WORK_DIR/wm8960.dtbo" "$DTS_SOURCE" || {
         log_error "Failed to compile WM8960 overlay"
         exit 1
     }
@@ -147,6 +147,7 @@ patch_dtb() {
         log_error "Verification failed — WM8960 node not found in patched DTB"
         log_error "Restoring backup..."
         rm -f "$PATCHED_DTB"
+        rm -f "$BASE_DTB"
         cp "${BASE_DTB}.backup" "$BASE_DTB"
         exit 1
     fi

@@ -72,15 +72,18 @@ if [ -n "$DTB_DIR" ]; then
             rm -f "$BASE_DTB"
             cp "${BASE_DTB}.backup" "$BASE_DTB"
             log_info "Original DTB restored"
+            # Remove patched DTB
+            PATCHED_DTB="$DTB_DIR/$(basename "$BASE_DTB" .dtb)-wm8960.dtb"
+            rm -f "$PATCHED_DTB"
         else
             log_warn "DTB backup not found — cannot restore original device tree"
+            log_warn "System may be left in an inconsistent state"
         fi
-        # Remove patched DTB
-        PATCHED_DTB="$DTB_DIR/$(basename "$BASE_DTB" .dtb)-wm8960.dtb"
-        rm -f "$PATCHED_DTB" 2>/dev/null
     else
         log_info "Device tree does not appear to be patched"
     fi
+else
+    log_info "DTB directory not found — skipping DTB restoration"
 fi
 
 log_info "Uninstallation complete!"

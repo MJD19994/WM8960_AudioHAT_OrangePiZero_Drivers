@@ -99,7 +99,7 @@ if [ -d "$PKG_DIR/modules" ]; then
     else
         # Flat layout (legacy) — create dir and copy
         mkdir -p "/lib/modules/${PKG_VERSION}/kernel"
-        cp -r "$PKG_DIR/modules/"* "/lib/modules/${PKG_VERSION}/" 2>/dev/null || true
+        cp -r "$PKG_DIR/modules/"* "/lib/modules/${PKG_VERSION}/"
     fi
 else
     log_error "No modules directory found in kernel package"
