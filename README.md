@@ -37,6 +37,7 @@ Installs everything in one step — kernel with WM8960 support (if needed) and a
 ```bash
 git clone https://github.com/MJD19994/WM8960_AudioHAT_OrangePiZero_Drivers
 cd WM8960_AudioHAT_OrangePiZero_Drivers
+chmod +x quick-setup.sh
 sudo ./quick-setup.sh
 sudo reboot
 ```
@@ -50,6 +51,7 @@ If you've already installed the kernel with WM8960 support separately:
 ```bash
 git clone https://github.com/MJD19994/WM8960_AudioHAT_OrangePiZero_Drivers
 cd WM8960_AudioHAT_OrangePiZero_Drivers
+chmod +x install.sh
 sudo ./install.sh
 sudo reboot
 ```
