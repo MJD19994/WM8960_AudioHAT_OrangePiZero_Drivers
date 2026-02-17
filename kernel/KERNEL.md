@@ -6,6 +6,16 @@ This guide covers kernel installation options for WM8960 support on Orange Pi Ze
 
 The kernel tar.gz package should **only** contain kernel binaries and modules. The installation script is now located in the repository at `scripts/install-kernel.sh` for better version control and transparency.
 
+### Device Tree Compatibility
+
+**The original Orange Pi device trees are fully compatible and should be kept.** The WM8960 kernel installation:
+- Installs the new kernel image and modules
+- Creates initramfs for the new kernel version
+- Updates boot symlinks (Image, uInitrd) to point to the new kernel
+- **Does NOT modify device tree files** - the existing Orange Pi device trees (dtb-6.1.31-sun50iw9) remain active and compatible
+
+This ensures hardware compatibility while adding WM8960 audio codec support.
+
 ## Option 1: Use Precompiled Kernel (Recommended)
 
 The easiest way is to use our precompiled kernel that includes WM8960 support.

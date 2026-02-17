@@ -87,6 +87,26 @@ install_kernel() {
     log_info "Installing kernel with WM8960 support..."
     bash "$INSTALL_SCRIPT" "$KERNEL_DIR"
 
+    # Create initramfs and update boot symlinks
+    log_info "Setting up boot configuration..."
+    
+    VERSION="6.1.31-orangepi"
+    
+    # Create initramfs
+    log_info "Creating initramfs..."
+    update-initramfs -c -k ${VERSION} 2>/dev/null || log_warn "Failed to create initramfs (may already exist)"
+    
+    # Update Image symlink to point to new kernel
+    log_info "Updating Image symlink..."
+    ln -sf vmlinuz-${VERSION} /boot/Image
+    
+    # Update uInitrd symlink to point to new initramfs
+    log_info "Updating uInitrd symlink..."
+    ln -sf uInitrd-${VERSION} /boot/uInitrd
+    
+    # Note: dtb symlink is NOT modified - Orange Pi device trees are compatible
+    log_info "Keeping original Orange Pi device trees (compatible)"
+
     # Verify installation
     if modinfo snd_soc_wm8960 >/dev/null 2>&1; then
         log_info "Kernel module installed successfully"
