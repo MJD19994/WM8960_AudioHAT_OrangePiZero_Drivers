@@ -39,7 +39,7 @@ check_prerequisites() {
     log_info "Checking prerequisites..."
     
     # Check for required commands
-    for cmd in dtc i2cset amixer systemctl; do
+    for cmd in dtc fdtoverlay fdtget i2cset amixer systemctl; do
         if ! command -v $cmd &> /dev/null; then
             log_error "Required command '$cmd' not found"
             exit 1
@@ -67,96 +67,88 @@ check_prerequisites() {
     fi
 }
 
-install_overlay() {
-    log_info "Installing device tree overlay..."
+patch_dtb() {
+    log_info "Patching device tree for WM8960 audio support..."
 
-    # Find the overlay directory (kernel name in path may differ from uname -r)
-    OVERLAY_DIR=$(find /boot -type d -name "overlay" -path "*/allwinner/*" 2>/dev/null | head -1)
-    if [ -z "$OVERLAY_DIR" ]; then
-        log_error "Could not find allwinner overlay directory under /boot"
+    # Find the DTB directory (follows /boot/dtb symlink)
+    DTB_DIR=$(find /boot -type d -name "allwinner" -path "*/dtb*" 2>/dev/null | head -1)
+    if [ -z "$DTB_DIR" ]; then
+        log_error "Could not find allwinner DTB directory under /boot"
         exit 1
     fi
-    log_info "Found overlay directory: $OVERLAY_DIR"
+    log_info "Found DTB directory: $DTB_DIR"
 
-    # Detect SoC variant (H616 vs H618) from existing overlays
-    SOC_PREFIX=""
-    if ls "$OVERLAY_DIR"/sun50i-h618-*.dtbo >/dev/null 2>&1; then
-        SOC_PREFIX="h618"
-        log_info "Detected H618 SoC from existing overlays"
-    elif ls "$OVERLAY_DIR"/sun50i-h616-*.dtbo >/dev/null 2>&1; then
-        SOC_PREFIX="h616"
-        log_info "Detected H616 SoC from existing overlays"
-    else
-        # Fallback: check base DTB files
-        ALLWINNER_DIR=$(dirname "$OVERLAY_DIR")
-        BASE_DTB=$(find "$ALLWINNER_DIR" -maxdepth 1 -name "sun50i-h6*.dtb" 2>/dev/null | head -1)
-        if echo "$BASE_DTB" | grep -q "h618"; then
-            SOC_PREFIX="h618"
-            log_info "Detected H618 SoC from base DTB"
-        elif echo "$BASE_DTB" | grep -q "h616"; then
-            SOC_PREFIX="h616"
-            log_info "Detected H616 SoC from base DTB"
-        else
-            SOC_PREFIX="h618"
-            log_warn "Could not detect SoC variant, defaulting to H618"
-        fi
+    # Find the board's base DTB
+    BASE_DTB=$(find "$DTB_DIR" -maxdepth 1 -name "sun50i-h61*-orangepi-zero2w.dtb" ! -name "*wm8960*" ! -name "*.backup" 2>/dev/null | head -1)
+    if [ -z "$BASE_DTB" ]; then
+        # DTB may already be a symlink to the wm8960 variant from a previous install
+        BASE_DTB=$(find "$DTB_DIR" -maxdepth 1 -name "sun50i-h61*-orangepi-zero2w.dtb" 2>/dev/null | head -1)
     fi
 
-    DTS_SOURCE="$SCRIPT_DIR/overlays-orangepi/sun50i-${SOC_PREFIX}-wm8960-working.dts"
-    OVERLAY_NAME="sun50i-${SOC_PREFIX}-wm8960-working.dtbo"
+    if [ -z "$BASE_DTB" ]; then
+        log_error "Could not find Orange Pi Zero 2W device tree"
+        exit 1
+    fi
+    log_info "Found base DTB: $BASE_DTB"
 
+    # Resolve symlink to get the real file
+    REAL_DTB=$(readlink -f "$BASE_DTB")
+    DTB_BASENAME=$(basename "$BASE_DTB" .dtb)
+
+    # Check if WM8960 is already patched
+    if fdtget "$REAL_DTB" /soc/i2c@5002400/wm8960@1a compatible >/dev/null 2>&1; then
+        log_info "Device tree already has WM8960 support — skipping patch"
+        return 0
+    fi
+
+    # Create backup of original DTB (only if not already backed up)
+    if [ ! -f "${BASE_DTB}.backup" ]; then
+        log_info "Backing up original DTB..."
+        cp "$REAL_DTB" "${BASE_DTB}.backup"
+    fi
+
+    # Use the original (unpatched) DTB as input — always patch from clean state
+    INPUT_DTB="${BASE_DTB}.backup"
+
+    # Compile the WM8960 overlay from source
+    DTS_SOURCE="$SCRIPT_DIR/overlays-orangepi/sun50i-h618-wm8960-working.dts"
     if [ ! -f "$DTS_SOURCE" ]; then
         log_error "Overlay source not found: $DTS_SOURCE"
-        log_error "Your board uses ${SOC_PREFIX} but overlay file is missing"
         exit 1
     fi
 
-    # Compile overlay
-    log_info "Compiling device tree overlay for ${SOC_PREFIX}..."
-    dtc -@ -I dts -O dtb -o "/tmp/$OVERLAY_NAME" "$DTS_SOURCE" || {
-        log_error "Failed to compile overlay"
+    WORK_DIR=$(mktemp -d)
+    trap "rm -rf '$WORK_DIR'" EXIT
+
+    log_info "Compiling WM8960 overlay..."
+    dtc -@ -I dts -O dtb -o "$WORK_DIR/wm8960.dtbo" "$DTS_SOURCE" 2>/dev/null || {
+        log_error "Failed to compile WM8960 overlay"
         exit 1
     }
 
-    # Backup existing overlay if present
-    if [ -f "$OVERLAY_DIR/$OVERLAY_NAME" ]; then
-        log_info "Backing up existing overlay..."
-        cp "$OVERLAY_DIR/$OVERLAY_NAME" "$OVERLAY_DIR/${OVERLAY_NAME}.backup-$(date +%Y%m%d)"
-    fi
+    # Apply overlay to base DTB using fdtoverlay
+    PATCHED_DTB="$DTB_DIR/${DTB_BASENAME}-wm8960.dtb"
 
-    # Install overlay
-    cp "/tmp/$OVERLAY_NAME" "$OVERLAY_DIR/" || {
-        log_error "Failed to install overlay"
+    log_info "Applying WM8960 overlay to device tree..."
+    fdtoverlay -i "$INPUT_DTB" -o "$PATCHED_DTB" "$WORK_DIR/wm8960.dtbo" || {
+        log_error "Failed to apply overlay to device tree"
+        rm -f "$PATCHED_DTB"
         exit 1
     }
 
-    log_info "Overlay installed successfully: $OVERLAY_NAME"
+    # Replace original DTB with symlink to patched version
+    ln -sf "$(basename "$PATCHED_DTB")" "$BASE_DTB"
+    log_info "Device tree patched: $(basename "$BASE_DTB") -> $(basename "$PATCHED_DTB")"
 
-    # Register overlay in orangepiEnv.txt so bootloader loads it
-    OVERLAY_ENTRY="wm8960-working"
-    ENV_FILE="/boot/orangepiEnv.txt"
-
-    if [ -f "$ENV_FILE" ]; then
-        CURRENT_OVERLAYS=$(grep "^overlays=" "$ENV_FILE" | sed 's/^overlays=//')
-
-        if echo "$CURRENT_OVERLAYS" | grep -qw "$OVERLAY_ENTRY"; then
-            log_info "Overlay already registered in orangepiEnv.txt"
-        else
-            if [ -z "$CURRENT_OVERLAYS" ]; then
-                # No overlays line or empty — add it
-                if grep -q "^overlays=" "$ENV_FILE"; then
-                    sed -i "s/^overlays=.*/overlays=${OVERLAY_ENTRY}/" "$ENV_FILE"
-                else
-                    echo "overlays=${OVERLAY_ENTRY}" >> "$ENV_FILE"
-                fi
-            else
-                # Append to existing overlays
-                sed -i "s/^overlays=.*/overlays=${CURRENT_OVERLAYS} ${OVERLAY_ENTRY}/" "$ENV_FILE"
-            fi
-            log_info "Overlay registered in orangepiEnv.txt: $(grep '^overlays=' "$ENV_FILE")"
-        fi
+    # Verify the patch
+    if fdtget "$PATCHED_DTB" /soc/i2c@5002400/wm8960@1a compatible >/dev/null 2>&1; then
+        log_info "WM8960 node verified in patched device tree"
     else
-        log_warn "orangepiEnv.txt not found — overlay must be loaded manually"
+        log_error "Verification failed — WM8960 node not found in patched DTB"
+        log_error "Restoring backup..."
+        rm -f "$PATCHED_DTB"
+        cp "${BASE_DTB}.backup" "$BASE_DTB"
+        exit 1
     fi
 }
 
@@ -225,7 +217,7 @@ echo ""
 
 check_root
 check_prerequisites
-install_overlay
+patch_dtb
 install_service
 install_alsa_config
 print_next_steps

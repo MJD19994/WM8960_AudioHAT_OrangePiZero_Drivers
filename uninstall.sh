@@ -61,19 +61,27 @@ fi
 
 rm -f /etc/wm8960.state
 
-# Remove overlay from orangepiEnv.txt
-ENV_FILE="/boot/orangepiEnv.txt"
-OVERLAY_ENTRY="wm8960-working"
-
-if [ -f "$ENV_FILE" ] && grep -q "$OVERLAY_ENTRY" "$ENV_FILE"; then
-    log_info "Removing overlay from orangepiEnv.txt..."
-    # Remove the entry from the overlays line (handle both "only entry" and "one of many")
-    CURRENT_OVERLAYS=$(grep "^overlays=" "$ENV_FILE" | sed 's/^overlays=//')
-    NEW_OVERLAYS=$(echo "$CURRENT_OVERLAYS" | sed "s/ *${OVERLAY_ENTRY}//;s/^ *//;s/ *$//;s/  */ /g")
-    sed -i "s/^overlays=.*/overlays=${NEW_OVERLAYS}/" "$ENV_FILE"
-    log_info "Updated: $(grep '^overlays=' "$ENV_FILE")"
+# Restore original device tree
+DTB_DIR=$(find /boot -type d -name "allwinner" -path "*/dtb*" 2>/dev/null | head -1)
+if [ -n "$DTB_DIR" ]; then
+    BASE_DTB=$(find "$DTB_DIR" -maxdepth 1 -name "sun50i-h61*-orangepi-zero2w.dtb" 2>/dev/null | head -1)
+    if [ -n "$BASE_DTB" ] && [ -L "$BASE_DTB" ]; then
+        # DTB is a symlink to patched version — restore from backup
+        if [ -f "${BASE_DTB}.backup" ]; then
+            log_info "Restoring original device tree..."
+            rm -f "$BASE_DTB"
+            cp "${BASE_DTB}.backup" "$BASE_DTB"
+            log_info "Original DTB restored"
+        else
+            log_warn "DTB backup not found — cannot restore original device tree"
+        fi
+        # Remove patched DTB
+        PATCHED_DTB="$DTB_DIR/$(basename "$BASE_DTB" .dtb)-wm8960.dtb"
+        rm -f "$PATCHED_DTB" 2>/dev/null
+    else
+        log_info "Device tree does not appear to be patched"
+    fi
 fi
 
 log_info "Uninstallation complete!"
-log_warn "Device tree overlay .dtbo file remains in /boot - remove manually if needed"
 log_info "Reboot recommended"
