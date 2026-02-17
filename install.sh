@@ -59,6 +59,32 @@ check_prerequisites() {
     fi
 }
 
+check_wm8960_support() {
+    log_info "Checking for WM8960 codec support..."
+    
+    # Check if wm8960 module exists
+    if modinfo wm8960 &> /dev/null; then
+        log_info "WM8960 module found in kernel"
+        return 0
+    fi
+    
+    # Check if it's built into the kernel (not as module)
+    if [ -f "/boot/config-$(uname -r)" ] && grep -q "CONFIG_SND_SOC_WM8960=y" "/boot/config-$(uname -r)" 2>/dev/null; then
+        log_info "WM8960 codec built into kernel"
+        return 0
+    fi
+    
+    # Check loaded modules
+    if lsmod | grep -q wm8960; then
+        log_info "WM8960 module is loaded"
+        return 0
+    fi
+    
+    log_error "WM8960 codec support not found in kernel!"
+    log_error "Please install the custom kernel with WM8960 drivers compiled in"
+    return 1
+}
+
 install_overlay() {
     log_info "Installing device tree overlay..."
 
@@ -190,6 +216,7 @@ echo ""
 
 check_root
 check_prerequisites
+check_wm8960_support || exit 1
 install_overlay
 install_service
 install_alsa_config
