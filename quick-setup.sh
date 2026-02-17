@@ -67,17 +67,25 @@ install_kernel() {
     log_info "Extracting kernel package..."
     tar -xzf "$KERNEL_PKG" -C "$TMPDIR"
 
-    # Find and run the install script
-    INSTALL_SCRIPT=$(find "$TMPDIR" -name "install-kernel.sh" | head -1)
+    # Find the extracted kernel directory
+    KERNEL_DIR=$(find "$TMPDIR" -type d -name "kernel-package" | head -1)
 
-    if [ -z "$INSTALL_SCRIPT" ]; then
-        log_error "install-kernel.sh not found in kernel package"
+    if [ -z "$KERNEL_DIR" ]; then
+        log_error "kernel-package directory not found in extracted tar.gz"
+        exit 1
+    fi
+
+    # Use the install script from the repo
+    INSTALL_SCRIPT="$SCRIPT_DIR/scripts/install-kernel.sh"
+
+    if [ ! -f "$INSTALL_SCRIPT" ]; then
+        log_error "install-kernel.sh not found in scripts/ directory"
+        log_error "This may be an old version of the repository"
         exit 1
     fi
 
     log_info "Installing kernel with WM8960 support..."
-    chmod +x "$INSTALL_SCRIPT"
-    bash "$INSTALL_SCRIPT"
+    bash "$INSTALL_SCRIPT" "$KERNEL_DIR"
 
     # Verify installation
     if modinfo snd_soc_wm8960 >/dev/null 2>&1; then

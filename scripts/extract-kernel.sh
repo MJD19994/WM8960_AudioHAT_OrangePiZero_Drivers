@@ -31,52 +31,6 @@ cp -r /lib/modules/${VERSION}/kernel/sound "$OUTPUT_DIR/modules/" || true
 # Copy module dependencies
 cp /lib/modules/${VERSION}/modules.* "$OUTPUT_DIR/modules/" || true
 
-# Create installation script
-cat > "$OUTPUT_DIR/install-kernel.sh" << 'EOFINSTALL'
-#!/bin/bash
-set -e
-
-if [ "$EUID" -ne 0 ]; then 
-    echo "ERROR: Must run as root"
-    exit 1
-fi
-
-VERSION="6.1.31-orangepi"
-
-echo "Installing Orange Pi kernel with WM8960 support..."
-echo "Version: $VERSION"
-echo ""
-
-# Backup existing kernel
-echo "Backing up existing kernel..."
-cp /boot/vmlinuz-${VERSION} /boot/vmlinuz-${VERSION}.backup 2>/dev/null || true
-
-# Install kernel files
-echo "Installing kernel..."
-cp vmlinuz-${VERSION} /boot/
-cp System.map-${VERSION} /boot/
-cp config-${VERSION} /boot/
-
-# Install modules
-echo "Installing modules..."
-cp -r modules/sound /lib/modules/${VERSION}/kernel/ || true
-cp modules/modules.* /lib/modules/${VERSION}/ || true
-
-# Update module dependencies
-echo "Updating module dependencies..."
-depmod -a ${VERSION}
-
-echo ""
-echo "Kernel installation complete!"
-echo "The WM8960 codec module is now available."
-echo ""
-echo "Next steps:"
-echo "1. Install the WM8960 driver package"
-echo "2. Reboot: sudo reboot"
-EOFINSTALL
-
-chmod +x "$OUTPUT_DIR/install-kernel.sh"
-
 # Create README
 cat > "$OUTPUT_DIR/README.txt" << 'EOFREADME'
 Orange Pi Zero 2W Kernel with WM8960 Support
@@ -86,8 +40,15 @@ This package contains a pre-compiled kernel with WM8960 audio codec support
 for Orange Pi Zero 2W (H618).
 
 INSTALLATION:
+This tar.gz should be placed in the kernel/ directory of the 
+WM8960_AudioHAT_OrangePiZero_Drivers repository.
+
+Installation is handled automatically by running quick-setup.sh from the 
+repository, which uses the install-kernel.sh script from scripts/ directory.
+
+For manual installation:
 1. Extract this archive
-2. Run: sudo ./install-kernel.sh
+2. From the repository root, run: sudo ./scripts/install-kernel.sh <path-to-extracted-kernel-package>
 3. Install WM8960 driver package from main repository
 4. Reboot
 

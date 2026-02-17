@@ -2,6 +2,10 @@
 
 This guide covers kernel installation options for WM8960 support on Orange Pi Zero 2W.
 
+## Important Note
+
+The kernel tar.gz package should **only** contain kernel binaries and modules. The installation script is now located in the repository at `scripts/install-kernel.sh` for better version control and transparency.
+
 ## Option 1: Use Precompiled Kernel (Recommended)
 
 The easiest way is to use our precompiled kernel that includes WM8960 support.
