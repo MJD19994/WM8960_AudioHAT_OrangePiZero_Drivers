@@ -42,7 +42,7 @@ mkdir -p /lib/modules/${VERSION}/kernel
 # Copy ALL module files recursively
 if [ -d "$KERNEL_DIR/modules" ]; then
     echo "Copying kernel modules..."
-    cp -r "$KERNEL_DIR/modules/"* /lib/modules/${VERSION}/ || echo "Warning: Failed to copy some module files"
+    cp -rf "$KERNEL_DIR/modules/"* /lib/modules/${VERSION}/ || echo "Warning: Failed to copy some module files"
 else
     echo "Warning: No modules directory found in $KERNEL_DIR"
 fi

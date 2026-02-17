@@ -94,15 +94,19 @@ install_kernel() {
     
     # Create initramfs
     log_info "Creating initramfs..."
-    update-initramfs -c -k ${VERSION} 2>/dev/null || log_warn "Failed to create initramfs (may already exist)"
+    if [ -f "/boot/initrd.img-${VERSION}" ] || [ -f "/boot/uInitrd-${VERSION}" ]; then
+        log_info "Initramfs already exists for ${VERSION}"
+    else
+        update-initramfs -c -k ${VERSION} || log_warn "Failed to create initramfs - check kernel modules and disk space"
+    fi
     
     # Update Image symlink to point to new kernel
     log_info "Updating Image symlink..."
-    ln -sf vmlinuz-${VERSION} /boot/Image
+    ln -sf /boot/vmlinuz-${VERSION} /boot/Image
     
     # Update uInitrd symlink to point to new initramfs
     log_info "Updating uInitrd symlink..."
-    ln -sf uInitrd-${VERSION} /boot/uInitrd
+    ln -sf /boot/uInitrd-${VERSION} /boot/uInitrd
     
     # Note: dtb symlink is NOT modified - Orange Pi device trees are compatible
     log_info "Keeping original Orange Pi device trees (compatible)"
