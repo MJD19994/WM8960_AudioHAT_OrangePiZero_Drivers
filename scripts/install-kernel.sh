@@ -85,21 +85,25 @@ cp "$PKG_DIR/vmlinuz-${PKG_VERSION}" /boot/
 cp "$PKG_DIR/System.map-${PKG_VERSION}" /boot/ 2>/dev/null || true
 cp "$PKG_DIR/config-${PKG_VERSION}" /boot/ 2>/dev/null || true
 
-# Create module directory by copying all modules from the running kernel,
-# then overlay the package's sound modules on top. This ensures the new
-# kernel has all essential drivers (filesystem, network, WiFi, etc.)
-RUNNING_VERSION=$(uname -r)
-if [ ! -d "/lib/modules/${PKG_VERSION}" ]; then
-    log_info "Copying base modules from running kernel ($RUNNING_VERSION)..."
-    cp -a "/lib/modules/${RUNNING_VERSION}" "/lib/modules/${PKG_VERSION}"
+# Install the full module tree from the package
+# The package includes all modules (WiFi, BT, sound, etc.) compiled
+# for this kernel version with matching vermagic
+log_info "Installing kernel modules..."
+if [ -d "$PKG_DIR/modules" ]; then
+    # The package may contain modules as a full /lib/modules/<version> tree
+    # or as a flat modules/ directory
+    if [ -d "$PKG_DIR/modules/kernel" ]; then
+        # Full module tree — install directly
+        rm -rf "/lib/modules/${PKG_VERSION}"
+        cp -a "$PKG_DIR/modules" "/lib/modules/${PKG_VERSION}"
+    else
+        # Flat layout (legacy) — create dir and copy
+        mkdir -p "/lib/modules/${PKG_VERSION}/kernel"
+        cp -r "$PKG_DIR/modules/"* "/lib/modules/${PKG_VERSION}/" 2>/dev/null || true
+    fi
 else
-    log_info "Module directory /lib/modules/${PKG_VERSION} already exists, updating..."
-fi
-
-# Overlay the package's sound modules (with WM8960 support)
-log_info "Installing WM8960 sound modules..."
-if [ -d "$PKG_DIR/modules/sound" ]; then
-    cp -r "$PKG_DIR/modules/sound" "/lib/modules/${PKG_VERSION}/kernel/"
+    log_error "No modules directory found in kernel package"
+    exit 1
 fi
 
 # Update module dependencies
