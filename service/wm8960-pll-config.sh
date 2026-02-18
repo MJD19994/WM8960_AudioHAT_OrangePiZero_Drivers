@@ -126,10 +126,16 @@ configure_mixer() {
     amixer -c "$CARD_NUM" sset "Playback" 255 >/dev/null 2>&1
 
     # Configure capture/recording settings
+    # Enable input signal path: LINPUT1/RINPUT1 -> Boost Mixer -> Input Mixer -> ADC
+    amixer -c "$CARD_NUM" sset "Left Input Mixer Boost" on >/dev/null 2>&1
+    amixer -c "$CARD_NUM" sset "Right Input Mixer Boost" on >/dev/null 2>&1
+    amixer -c "$CARD_NUM" sset "Left Boost Mixer LINPUT1" on >/dev/null 2>&1
+    amixer -c "$CARD_NUM" sset "Right Boost Mixer RINPUT1" on >/dev/null 2>&1
+    amixer -c "$CARD_NUM" sset "Capture" on >/dev/null 2>&1
     amixer -c "$CARD_NUM" sset "Capture" 45 >/dev/null 2>&1
     amixer -c "$CARD_NUM" cset numid=37 210,210 >/dev/null 2>&1  # ADC PCM Capture Volume
-    amixer -c "$CARD_NUM" cset numid=10 2 >/dev/null 2>&1         # Left Input Boost Mixer LINPUT1 Volume
-    amixer -c "$CARD_NUM" cset numid=9 2 >/dev/null 2>&1          # Right Input Boost Mixer RINPUT1 Volume
+    amixer -c "$CARD_NUM" cset numid=10 2 >/dev/null 2>&1         # Left Input Boost LINPUT1 Volume
+    amixer -c "$CARD_NUM" cset numid=9 2 >/dev/null 2>&1          # Right Input Boost RINPUT1 Volume
 
     log "Mixer configured!"
 }
