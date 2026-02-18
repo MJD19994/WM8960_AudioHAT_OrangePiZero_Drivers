@@ -3,7 +3,7 @@
 # WM8960 Audio HAT Installation Script for Orange Pi Zero 2W (H618)
 # 
 # This script installs and configures the WM8960 audio codec support
-# including device tree overlay, PLL configuration service, and ALSA settings.
+# including device tree patching, PLL configuration service, and ALSA settings.
 #
 
 set -e
@@ -224,7 +224,3 @@ install_alsa_config
 print_next_steps
 
 exit 0
-
-
-
-

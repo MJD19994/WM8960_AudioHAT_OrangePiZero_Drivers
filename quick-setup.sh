@@ -3,7 +3,7 @@
 # WM8960 Audio HAT Quick Setup
 #
 # All-in-one installer that handles both kernel installation (if needed)
-# and driver/overlay/service setup. Safe to re-run.
+# and driver/device-tree/service setup. Safe to re-run.
 #
 # For driver-only installation (kernel already has WM8960 support),
 # use install.sh instead.

@@ -212,14 +212,19 @@ The kernel doesn't have WM8960 support compiled in.
 
 ### Module loads but codec not detected
 
-Check device tree overlay is installed and active:
+Check that the device tree has been patched and the WM8960 is visible on I2C:
 ```bash
-# Verify overlay exists
-ls -l /boot/dtb-$(uname -r)/allwinner/overlay/sun50i-h618-wm8960-working.dtbo
+# Verify device tree has WM8960 node
+fdtget /boot/dtb/allwinner/sun50i-h618-orangepi-zero2w.dtb /soc/i2c@5002400/wm8960@1a compatible
 
-# Check I2C
+# Check I2C (WM8960 should appear at address 0x1a)
 i2cdetect -y 2
-# Should show device at 0x1a
+```
+
+If the device tree is not patched, re-run the installer:
+```bash
+sudo ./install.sh
+sudo reboot
 ```
 
 ### Kernel compilation fails

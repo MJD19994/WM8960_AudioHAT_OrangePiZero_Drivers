@@ -1,28 +1,34 @@
-# Orange Pi OS Specific Overlays
+# Device Tree Overlay Sources
 
-These overlays are designed for **Orange Pi's official OS** (vendor BSP kernel 6.1.31-sun50iw9).
+These are the WM8960 device tree overlay source files for Orange Pi boards with Allwinner H616/H618 SoCs running **Orange Pi OS** (vendor BSP kernel 6.1.31-sun50iw9).
 
-## Differences from DietPi/Armbian Overlays
+## How They Work
 
-Orange Pi OS uses a different device tree structure:
-- **AHUB nodes**: Uses `ahub1_plat`/`ahub1_mach` instead of `ahub-i2s1@5097000`
-- **I2C structure**: Different phandle system
-- **No exposed I2S interfaces**: AHUB I2S devices not exposed in device tree
+The overlay DTS files are **compiled and merged into the base device tree at install time** using `fdtoverlay`. This approach is used because Orange Pi OS's U-Boot does not reliably apply overlays at runtime.
 
-## Current Status
-
-❌ **Orange Pi OS does NOT have DAUDIO driver** even in vendor BSP
-❌ **AHUB I2S interfaces not exposed** in device tree for external codecs
-✅ Internal codec works
-✅ AHUB HDMI audio works
+At install time, `install.sh`:
+1. Compiles the DTS source into a `.dtbo` using `dtc`
+2. Applies it to the base DTB using `fdtoverlay`
+3. Symlinks the original DTB name to the patched version
+4. Verifies the WM8960 node exists with `fdtget`
 
 ## Files
 
-- `sun50i-h616-wm8960-orangepi.dtbo` - WM8960 on I2C with clock (I2C only, no audio)
-- Documentation for limitations
+- `sun50i-h618-wm8960-working.dts` — For Orange Pi Zero 2W (H618)
+- `sun50i-h616-wm8960-working.dts` — For other Orange Pi H616 boards (untested)
 
-## Installation
+Both variants are identical in structure. The installer auto-detects the SoC and selects the correct file.
 
-**WARNING**: These overlays will NOT enable audio. They only add the WM8960 codec to I2C for detection purposes.
+## What the Overlay Adds
 
-The AHUB architecture in Orange Pi OS is configured only for internal codec and HDMI. External I2S audio is not supported without the missing DAUDIO driver.
+1. **I2S0 pin configuration** — PI1/PI2 (BCLK/LRCK), PI3 (DOUT), PI4 (DIN)
+2. **AHUB0 platform device** — External I2S interface for the WM8960
+3. **AHUB0 machine driver** — Binds the WM8960 codec to the AHUB audio subsystem
+4. **I2C1 WM8960 node** — Enables I2C1 (`i2c@5002400`, Linux bus 2) and declares the WM8960 codec at address 0x1a
+
+## Technical Notes
+
+- Overlays use `target-path` (string paths) instead of `target = <&phandle>` references, which is required for `fdtoverlay` compatibility
+- I2S0 pins are split into 3 separate groups with different pin functions (`i2s0`, `i2s0_dout0`, `i2s0_din0`)
+- The AHUB nodes (`ahub0_plat`, `ahub0_mach`) are direct children of `/soc`
+- The WM8960 uses its onboard 24MHz crystal — no external MCLK clock reference is needed

@@ -93,11 +93,11 @@ Without PLL configuration, you get:
 
 This package provides:
 
-1. **Device Tree Overlay** (`overlays-orangepi/sun50i-h618-wm8960-working.dts`)
+1. **Device Tree Patching** (`overlays-orangepi/sun50i-h618-wm8960-working.dts`)
+   - Compiled and applied to the base DTB at install time using `fdtoverlay`
    - Configures I2S0 pins (BCLK, LRCK, DOUT, DIN)
    - Sets up AHUB audio subsystem
-   - Declares WM8960 codec on I2C bus 2
-   - References 24MHz fixed clock
+   - Enables I2C1 and declares WM8960 codec at address 0x1a
 
 2. **PLL Configuration Service** (`service/wm8960-pll-config.sh`)
    - Runs at boot via systemd
@@ -113,14 +113,14 @@ This package provides:
 
 ## Uninstalling
 
-To remove the driver, overlay, and ALSA configuration:
+To remove the driver, device tree patch, and ALSA configuration:
 
 ```bash
 sudo ./uninstall.sh
 sudo reboot
 ```
 
-This safely removes the systemd service, device tree overlay, and ALSA config files. Your existing ALSA configuration is backed up before removal.
+This safely removes the systemd service, restores the original device tree, and removes ALSA config files. Your existing ALSA configuration is backed up before removal.
 
 **Note:** The uninstall script does not roll back kernel changes. The WM8960-enabled kernel is safe to keep — it does not affect other audio devices or system stability. If you need to revert to a different kernel, you will need to install one manually.
 
@@ -133,9 +133,9 @@ WM8960_AudioHAT_OrangePiZero_Drivers/
 ├── quick-setup.sh                      # All-in-one setup (kernel + driver)
 ├── install.sh                          # Driver-only installation (auto-detects H616/H618)
 ├── uninstall.sh                        # Uninstallation script
-├── overlays-orangepi/                  # Device tree overlays
-│   ├── sun50i-h616-wm8960-working.dts # H616 variant
-│   └── sun50i-h618-wm8960-working.dts # H618 variant
+├── overlays-orangepi/                  # Device tree overlay sources
+│   ├── sun50i-h616-wm8960-working.dts # H616 variant (compiled and applied at install time)
+│   └── sun50i-h618-wm8960-working.dts # H618 variant (compiled and applied at install time)
 ├── service/                            # System services
 │   ├── wm8960-pll-config.sh           # PLL configuration script
 │   └── wm8960-audio.service           # Systemd service
@@ -158,28 +158,70 @@ WM8960_AudioHAT_OrangePiZero_Drivers/
 
 ### Mixer Controls
 
-Key mixer controls for the WM8960:
+Use `alsamixer` for an interactive mixer GUI:
 
 ```bash
-# Find the card number (or use card name directly)
-CARD_NUM=$(aplay -l | grep ahub0wm8960 | head -1 | sed -n 's/^card \([0-9]\+\):.*/\1/p')
+# Open the interactive mixer (use F4 for capture view, Tab to switch views)
+alsamixer -c ahub0wm8960
+```
 
-# Set headphone volume (0-127)
+Or use `amixer` for command-line control:
+
+**Playback controls:**
+
+```bash
+# Set headphone volume (0-127, default: 121)
 amixer -c ahub0wm8960 sset 'Headphone' 121
 
-# Set speaker volume (0-127)
+# Set speaker volume (0-127, default: 121)
 amixer -c ahub0wm8960 sset 'Speaker' 121
 
-# Enable PCM routing
+# Set DAC playback volume (0-255, default: 255)
+amixer -c ahub0wm8960 sset 'Playback' 255
+
+# Enable PCM output routing (required for audio output)
 amixer -c ahub0wm8960 sset 'Left Output Mixer PCM' on
 amixer -c ahub0wm8960 sset 'Right Output Mixer PCM' on
 
-# Set playback volume (0-255)
-amixer -c ahub0wm8960 sset 'Playback' 255
+# Speaker boost controls (0-5, default: 0 = no boost)
+amixer -c ahub0wm8960 sset 'Speaker AC' 0
+amixer -c ahub0wm8960 sset 'Speaker DC' 0
 
-# Or use card number if needed
-amixer -c $CARD_NUM sset 'Headphone' 121
+# Disable mono output (reduces crosstalk)
+amixer -c ahub0wm8960 sset 'Mono Output Mixer Left' off
+amixer -c ahub0wm8960 sset 'Mono Output Mixer Right' off
 ```
+
+**Capture/recording controls:**
+
+```bash
+# Enable capture input routing (required for recording)
+amixer -c ahub0wm8960 sset 'Left Input Mixer Boost' on
+amixer -c ahub0wm8960 sset 'Right Input Mixer Boost' on
+amixer -c ahub0wm8960 sset 'Left Boost Mixer LINPUT1' on
+amixer -c ahub0wm8960 sset 'Right Boost Mixer RINPUT1' on
+
+# Enable capture and set volume (0-63, default: 45)
+amixer -c ahub0wm8960 sset 'Capture' on
+amixer -c ahub0wm8960 sset 'Capture' 45
+
+# Set input boost gain (0-3, default: 2)
+# 0 = mute, 1 = +13dB, 2 = +20dB, 3 = +29dB
+amixer -c ahub0wm8960 cset numid=10 2   # Left Input Boost LINPUT1 Volume
+amixer -c ahub0wm8960 cset numid=9 2    # Right Input Boost RINPUT1 Volume
+
+# Set ADC digital volume (0-255, default: 210)
+amixer -c ahub0wm8960 cset numid=37 210,210
+```
+
+**Signal path overview:**
+
+The WM8960 audio signal flows through these mixer stages:
+
+- **Playback:** DAC → Output Mixer (PCM switch) → Headphone/Speaker amplifier
+- **Capture:** LINPUT1/RINPUT1 → Boost Mixer → Input Mixer (Boost switch) → ADC
+
+All routing switches and volumes are configured automatically by the PLL configuration service at boot. Use the commands above to adjust levels after boot if needed.
 
 ### Recording Audio
 
@@ -194,9 +236,6 @@ arecord -r 48000 -c 2 -f S16_LE -t wav -d 5 recording.wav
 
 # Play back the recording
 aplay -D plughw:ahub0wm8960,0 recording.wav
-
-# Adjust capture volume (0-63, default: 45)
-amixer -c ahub0wm8960 sset 'Capture' 50
 ```
 
 **Note:** Use 48kHz sample rate for best speaker playback compatibility. Lower sample rates (16kHz, 8kHz) work for headphones but may not play through the speaker.
@@ -246,6 +285,19 @@ If the steps below don't help, check the service logs with `journalctl -u wm8960
 - Increase mixer volumes: `amixer -c ahub0wm8960 sset 'Headphone' 127`
 - Check playback volume: `amixer -c ahub0wm8960 sset 'Playback' 255`
 
+**Recording not working (no audio captured):**
+1. Verify the capture signal path is enabled:
+   ```bash
+   amixer -c ahub0wm8960 sset 'Left Input Mixer Boost' on
+   amixer -c ahub0wm8960 sset 'Right Input Mixer Boost' on
+   amixer -c ahub0wm8960 sset 'Left Boost Mixer LINPUT1' on
+   amixer -c ahub0wm8960 sset 'Right Boost Mixer RINPUT1' on
+   amixer -c ahub0wm8960 sset 'Capture' on
+   ```
+2. Check capture volume: `amixer -c ahub0wm8960 sset 'Capture' 45`
+3. Verify the PLL service ran successfully: `systemctl status wm8960-audio.service`
+4. Try re-running the configuration: `sudo /usr/local/bin/wm8960-pll-config.sh`
+
 ## Advanced Topics
 
 ### Kernel Requirements
@@ -267,8 +319,8 @@ WM8960_CARD=2 /usr/local/bin/wm8960-pll-config.sh
 
 **DEVICE_ID** - Override the I2C device identifier
 ```bash
-# For WM8960 on I2C bus 1 at address 0x1a (device ID: 1-001a)
-DEVICE_ID="1-001a" /usr/local/bin/wm8960-pll-config.sh
+# Override the device ID (default: "2-001a" for Linux bus 2, address 0x1a)
+DEVICE_ID="3-001a" /usr/local/bin/wm8960-pll-config.sh
 ```
 
 These are useful for non-standard configurations or systems with multiple WM8960 devices.
@@ -278,7 +330,8 @@ These are useful for non-standard configurations or systems with multiple WM8960
 For debugging or custom configurations, you can manually configure the PLL:
 
 ```bash
-# Build device ID from I2C bus and address (default: bus 2, address 0x1a = "2-001a")
+# The WM8960 sits on hardware I2C1 (i2c@5002400), which appears as Linux bus 2 (/dev/i2c-2).
+# The device ID format is "<linux-bus>-<address>", so the default is "2-001a".
 DEVICE_ID="2-001a"
 
 # Disable driver
@@ -297,7 +350,7 @@ i2cset -y 2 0x1a 0x04 0x01  # Switch SYSCLK to PLL
 echo "$DEVICE_ID" > /sys/bus/i2c/drivers/wm8960/bind
 ```
 
-**Note:** The device ID format is `<bus>-<address>` where address is a 4-digit hex value (e.g., "2-001a" for bus 2, address 0x1a).
+**Note:** The device ID format is `<linux-bus>-<address>` where the bus number is the **Linux bus number** (check with `i2cdetect -l`) and address is a 4-digit hex value. On the Orange Pi Zero 2W, hardware I2C1 appears as Linux bus 2, so the default device ID is `2-001a`.
 
 ## Contributing
 
