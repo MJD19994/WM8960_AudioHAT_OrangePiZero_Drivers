@@ -32,6 +32,12 @@ Complete audio support for WM8960-based audio HATs (including ReSpeaker 2-Mic HA
 
 ## Quick Start
 
+### Update Your System
+
+```bash
+sudo apt update && sudo apt upgrade -y
+```
+
 ### Quick Setup (Recommended)
 
 Installs everything in one step — kernel with WM8960 support (if needed) and all driver components:
@@ -64,9 +70,11 @@ After reboot, run the interactive test script:
 
 ```bash
 # Full interactive test (diagnostics + playback + recording tests)
+chmod +x scripts/test-audio.sh
 ./scripts/test-audio.sh
 
 # Diagnostics only (no interactive prompts — useful for debugging)
+chmod +x scripts/test-audio.sh
 ./scripts/test-audio.sh --diagnostics-only
 ```
 
