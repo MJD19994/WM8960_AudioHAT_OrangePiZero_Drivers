@@ -73,7 +73,9 @@ After reboot, run the interactive test script:
 cd WM8960_AudioHAT_OrangePiZero_Drivers
 sudo chmod +x scripts/test-audio.sh
 sudo ./scripts/test-audio.sh
+```
 
+```bash
 # Diagnostics only (no interactive prompts — useful for debugging).
 cd WM8960_AudioHAT_OrangePiZero_Drivers
 sudo chmod +x scripts/test-audio.sh
