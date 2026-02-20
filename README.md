@@ -70,12 +70,14 @@ After reboot, run the interactive test script:
 
 ```bash
 # Full interactive test (diagnostics + playback + recording tests)
-chmod +x scripts/test-audio.sh
-./scripts/test-audio.sh
+cd WM8960_AudioHAT_OrangePiZero_Drivers
+sudo chmod +x scripts/test-audio.sh
+sudo ./scripts/test-audio.sh
 
-# Diagnostics only (no interactive prompts — useful for debugging)
-chmod +x scripts/test-audio.sh
-./scripts/test-audio.sh --diagnostics-only
+# Diagnostics only (no interactive prompts — useful for debugging).
+cd WM8960_AudioHAT_OrangePiZero_Drivers
+sudo chmod +x scripts/test-audio.sh
+sudo ./scripts/test-audio.sh --diagnostics-only
 ```
 
 The test script checks: kernel module, I2C device, sound card, service status, ALSA config, mixer routing, and dmesg errors. Then it walks you through interactive playback and recording tests.
@@ -230,11 +232,11 @@ amixer -c ahub0wm8960 sset 'Capture' 45
 
 # Set input boost gain (0-3, default: 2)
 # 0 = mute, 1 = +13dB, 2 = +20dB, 3 = +29dB
-amixer -c ahub0wm8960 cset numid=10 2   # Left Input Boost LINPUT1 Volume
-amixer -c ahub0wm8960 cset numid=9 2    # Right Input Boost RINPUT1 Volume
+amixer -c ahub0wm8960 cset name='Left Input Boost Mixer LINPUT1 Volume' 2
+amixer -c ahub0wm8960 cset name='Right Input Boost Mixer RINPUT1 Volume' 2
 
 # Set ADC digital volume (0-255, default: 210)
-amixer -c ahub0wm8960 cset numid=37 210,210
+amixer -c ahub0wm8960 cset name='ADC PCM Capture Volume' 210,210
 ```
 
 **Signal path overview:**
@@ -252,7 +254,7 @@ If you adjust volumes or enable features like ALC, save your settings to persist
 
 ```bash
 # Save current mixer state to disk
-sudo alsactl store -c ahub0wm8960
+sudo alsactl store ahub0wm8960
 ```
 
 On first boot, the service applies defaults and saves them. On subsequent boots, it restores your saved settings instead. To reset back to factory defaults:
@@ -265,6 +267,15 @@ sudo /usr/local/bin/wm8960-pll-config.sh --reset-defaults
 # WARNING: This removes saved state for ALL sound cards, not just WM8960
 sudo rm /var/lib/alsa/asound.state
 sudo reboot
+```
+
+**Discovering control names:**
+
+Control names may vary between kernel or driver versions. To list the available controls on your system:
+
+```bash
+amixer -c ahub0wm8960 scontrols   # Simple control names (for sset/sget)
+amixer -c ahub0wm8960 controls    # All controls including hardware-level (for cset/cget)
 ```
 
 **WM8960 hardware features (disabled by default, enable as needed):**

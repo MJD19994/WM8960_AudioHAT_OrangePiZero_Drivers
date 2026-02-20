@@ -136,14 +136,15 @@ has_saved_state() {
     local card_num="$1"
     local state_file="/var/lib/alsa/asound.state"
 
-    [ -f "$state_file" ] && grep -q "state\.card${card_num} " "$state_file" 2>/dev/null
+    [ -f "$state_file" ] && grep -qE "state\.card${card_num}[[:space:]]*\{" "$state_file" 2>/dev/null
 }
 
 apply_mixer_defaults() {
     local CARD_NUM="$1"
 
-    # Disable set -e for mixer commands — individual controls may vary by
-    # driver version and a single missing control should not abort the script
+    # Run in subshell with errexit disabled — individual mixer controls may vary
+    # by driver version and a single missing control should not abort the script
+    (
     set +e
 
     # --- Playback routing and volumes ---
@@ -219,9 +220,7 @@ apply_mixer_defaults() {
     # --- Noise Gate (off by default) ---
     amixer -c "$CARD_NUM" sset "Noise Gate" off >/dev/null 2>&1
     amixer -c "$CARD_NUM" sset "Noise Gate Threshold" 0 >/dev/null 2>&1
-
-    # Re-enable set -e for the rest of the script
-    set -e
+    )
 }
 
 configure_mixer() {

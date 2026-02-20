@@ -220,23 +220,26 @@ read -p "  Press Enter to start recording (or 's' to skip): " -n 1 -r
 echo
 if [[ ! $REPLY =~ ^[Ss]$ ]]; then
     echo "  Recording for 5 seconds... speak into the microphone."
-    arecord -D "$DEVICE" -r "$SAMPLE_RATE" -c 2 -f S16_LE -t wav -d 5 "$TEST_FILE" 2>/dev/null
-
-    # Check if recording has any audio content
-    FILE_SIZE=$(stat -c%s "$TEST_FILE" 2>/dev/null || echo 0)
-    if [ "$FILE_SIZE" -gt 1000 ]; then
-        echo "  Recording complete ($FILE_SIZE bytes). Playing back..."
-        aplay -D "$DEVICE" "$TEST_FILE" 2>/dev/null
-        read -p "  Did you hear your recording? (y/n): " -n 1 -r
-        echo
-        if [[ $REPLY =~ ^[Yy]$ ]]; then
-            pass "Microphone recording and playback"
+    if timeout 10 arecord -D "$DEVICE" -r "$SAMPLE_RATE" -c 2 -f S16_LE -t wav -d 5 "$TEST_FILE" 2>/dev/null; then
+        # Check if recording has any audio content
+        FILE_SIZE=$(stat -c%s "$TEST_FILE" 2>/dev/null || echo 0)
+        if [ "$FILE_SIZE" -gt 1000 ]; then
+            echo "  Recording complete ($FILE_SIZE bytes). Playing back..."
+            timeout 10 aplay -D "$DEVICE" "$TEST_FILE" 2>/dev/null || true
+            read -p "  Did you hear your recording? (y/n): " -n 1 -r
+            echo
+            if [[ $REPLY =~ ^[Yy]$ ]]; then
+                pass "Microphone recording and playback"
+            else
+                fail "Recording may have captured silence — check microphone and capture volume"
+                ((ERRORS++))
+            fi
         else
-            fail "Recording may have captured silence — check microphone and capture volume"
+            fail "Recording file is empty or too small — capture may not be working"
             ((ERRORS++))
         fi
     else
-        fail "Recording file is empty or too small — capture may not be working"
+        fail "Recording failed or timed out — capture device may be unavailable"
         ((ERRORS++))
     fi
     rm -f "$TEST_FILE"
