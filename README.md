@@ -262,6 +262,7 @@ On first boot, the service applies defaults and saves them. On subsequent boots,
 sudo /usr/local/bin/wm8960-pll-config.sh --reset-defaults
 
 # Option 2: Reset on next reboot
+# WARNING: This removes saved state for ALL sound cards, not just WM8960
 sudo rm /var/lib/alsa/asound.state
 sudo reboot
 ```
