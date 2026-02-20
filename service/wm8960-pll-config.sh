@@ -142,12 +142,16 @@ has_saved_state() {
 apply_mixer_defaults() {
     local CARD_NUM="$1"
 
+    # Disable set -e for mixer commands — individual controls may vary by
+    # driver version and a single missing control should not abort the script
+    set +e
+
     # --- Playback routing and volumes ---
     # Enable DAC -> Output Mixer -> Headphone/Speaker path
     amixer -c "$CARD_NUM" sset "Left Output Mixer PCM" on >/dev/null 2>&1
     amixer -c "$CARD_NUM" sset "Right Output Mixer PCM" on >/dev/null 2>&1
-    amixer -c "$CARD_NUM" sset "Left Output Mixer Boost" off >/dev/null 2>&1
-    amixer -c "$CARD_NUM" sset "Right Output Mixer Boost" off >/dev/null 2>&1
+    amixer -c "$CARD_NUM" sset "Left Output Mixer Boost Bypass" off >/dev/null 2>&1
+    amixer -c "$CARD_NUM" sset "Right Output Mixer Boost Bypass" off >/dev/null 2>&1
     amixer -c "$CARD_NUM" sset "Left Output Mixer LINPUT3" off >/dev/null 2>&1
     amixer -c "$CARD_NUM" sset "Right Output Mixer RINPUT3" off >/dev/null 2>&1
     amixer -c "$CARD_NUM" sset "Mono Output Mixer Left" off >/dev/null 2>&1
@@ -208,13 +212,16 @@ apply_mixer_defaults() {
     amixer -c "$CARD_NUM" sset "ALC Min Gain" 0 >/dev/null 2>&1
     amixer -c "$CARD_NUM" sset "ALC Target" 4 >/dev/null 2>&1
     amixer -c "$CARD_NUM" sset "ALC Hold Time" 0 >/dev/null 2>&1
-    amixer -c "$CARD_NUM" sset "ALC Decay Time" 3 >/dev/null 2>&1
-    amixer -c "$CARD_NUM" sset "ALC Attack Time" 2 >/dev/null 2>&1
+    amixer -c "$CARD_NUM" sset "ALC Decay" 3 >/dev/null 2>&1
+    amixer -c "$CARD_NUM" sset "ALC Attack" 2 >/dev/null 2>&1
     amixer -c "$CARD_NUM" sset "ALC Mode" "ALC" >/dev/null 2>&1
 
     # --- Noise Gate (off by default) ---
     amixer -c "$CARD_NUM" sset "Noise Gate" off >/dev/null 2>&1
     amixer -c "$CARD_NUM" sset "Noise Gate Threshold" 0 >/dev/null 2>&1
+
+    # Re-enable set -e for the rest of the script
+    set -e
 }
 
 configure_mixer() {

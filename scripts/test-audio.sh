@@ -48,9 +48,15 @@ else
 fi
 
 # 2. Check I2C device
+# When the WM8960 driver is bound, i2cdetect shows "UU" instead of "1a"
 if command -v i2cdetect >/dev/null 2>&1; then
-    if i2cdetect -y 2 2>/dev/null | grep -q "1a"; then
-        pass "WM8960 detected on I2C bus 2 at 0x1a"
+    I2C_OUTPUT=$(i2cdetect -y 2 2>/dev/null || true)
+    if echo "$I2C_OUTPUT" | grep -qE "\b(1a|UU)\b" 2>/dev/null; then
+        if echo "$I2C_OUTPUT" | grep -q "UU" 2>/dev/null; then
+            pass "WM8960 detected on I2C bus 2 at 0x1a (driver bound)"
+        else
+            pass "WM8960 detected on I2C bus 2 at 0x1a"
+        fi
     else
         fail "WM8960 not detected on I2C bus 2"
         ((ERRORS++))
@@ -172,7 +178,7 @@ echo "  This will play a 1kHz tone for 3 seconds."
 read -p "  Press Enter to play (or 's' to skip): " -n 1 -r
 echo
 if [[ ! $REPLY =~ ^[Ss]$ ]]; then
-    speaker-test -D "$DEVICE" -c 2 -r "$SAMPLE_RATE" -t sine -f 1000 -l 1 -p 3 2>/dev/null
+    timeout 3 speaker-test -D "$DEVICE" -c 2 -r "$SAMPLE_RATE" -t sine -f 1000 2>/dev/null || true
     read -p "  Did you hear the tone? (y/n): " -n 1 -r
     echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
@@ -192,7 +198,7 @@ echo "  This will play pink noise alternating between left and right channels."
 read -p "  Press Enter to play (or 's' to skip): " -n 1 -r
 echo
 if [[ ! $REPLY =~ ^[Ss]$ ]]; then
-    speaker-test -D "$DEVICE" -c 2 -r "$SAMPLE_RATE" -t pink -l 1 -p 3 2>/dev/null
+    timeout 6 speaker-test -D "$DEVICE" -c 2 -r "$SAMPLE_RATE" -t pink -l 1 2>/dev/null || true
     read -p "  Did you hear sound in both channels? (y/n): " -n 1 -r
     echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
@@ -247,7 +253,7 @@ echo
 if [[ ! $REPLY =~ ^[Ss]$ ]]; then
     for freq in 440 1000 4000; do
         echo "  Playing ${freq}Hz..."
-        speaker-test -D "$DEVICE" -c 2 -r "$SAMPLE_RATE" -t sine -f "$freq" -l 1 -p 2 2>/dev/null
+        timeout 2 speaker-test -D "$DEVICE" -c 2 -r "$SAMPLE_RATE" -t sine -f "$freq" 2>/dev/null || true
     done
     read -p "  Did you hear all three tones (low, mid, high)? (y/n): " -n 1 -r
     echo
