@@ -220,6 +220,8 @@ apply_mixer_defaults() {
     # --- Noise Gate (off by default) ---
     amixer -c "$CARD_NUM" sset "Noise Gate" off >/dev/null 2>&1
     amixer -c "$CARD_NUM" sset "Noise Gate Threshold" 0 >/dev/null 2>&1
+
+    exit 0
     )
 }
 

@@ -161,7 +161,7 @@ if [ -z "$CARD_NUM" ]; then
     echo ""
     echo "Cannot run interactive tests without a working sound card."
     echo "Fix the issues above and try again."
-    exit 1
+    exit "$ERRORS"
 fi
 
 # --- Interactive Tests ---
