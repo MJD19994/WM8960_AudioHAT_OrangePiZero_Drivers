@@ -136,7 +136,7 @@ has_saved_state() {
     local card_num="$1"
     local state_file="/var/lib/alsa/asound.state"
 
-    [ -f "$state_file" ] && grep -q "card${card_num}" "$state_file" 2>/dev/null
+    [ -f "$state_file" ] && grep -q "state\.card${card_num} " "$state_file" 2>/dev/null
 }
 
 apply_mixer_defaults() {
@@ -195,11 +195,11 @@ apply_mixer_defaults() {
     amixer -c "$CARD_NUM" sset "Capture Volume ZC" on >/dev/null 2>&1
 
     # ADC digital volume (0-255)
-    amixer -c "$CARD_NUM" cset numid=37 210,210 >/dev/null 2>&1
+    amixer -c "$CARD_NUM" cset name='ADC PCM Capture Volume' 210,210 >/dev/null 2>&1
 
     # Input boost gain (0=mute, 1=+13dB, 2=+20dB, 3=+29dB)
-    amixer -c "$CARD_NUM" cset numid=10 2 >/dev/null 2>&1
-    amixer -c "$CARD_NUM" cset numid=9 2 >/dev/null 2>&1
+    amixer -c "$CARD_NUM" cset name='Left Input Boost Mixer LINPUT1 Volume' 2 >/dev/null 2>&1
+    amixer -c "$CARD_NUM" cset name='Right Input Boost Mixer RINPUT1 Volume' 2 >/dev/null 2>&1
 
     # ADC settings
     amixer -c "$CARD_NUM" sset "ADC Polarity" "No Inversion" >/dev/null 2>&1
@@ -244,8 +244,13 @@ configure_mixer() {
         log "Factory defaults applied and saved!"
     elif has_saved_state "$CARD_NUM"; then
         log "Restoring saved mixer state..."
-        alsactl restore "$CARD_NUM" >/dev/null 2>&1
-        log "Mixer restored from saved state!"
+        if alsactl restore "$CARD_NUM" >/dev/null 2>&1; then
+            log "Mixer restored from saved state!"
+        else
+            log "WARNING: Failed to restore saved state, applying defaults..."
+            apply_mixer_defaults "$CARD_NUM"
+            alsactl store "$CARD_NUM" >/dev/null 2>&1 || true
+        fi
     else
         log "No saved state found — applying defaults..."
         apply_mixer_defaults "$CARD_NUM"
