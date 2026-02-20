@@ -10,7 +10,9 @@ Complete audio support for WM8960-based audio HATs (including ReSpeaker 2-Mic HA
 - ✅ Simultaneous headphone and speaker output
 - ✅ Automatic PLL configuration at boot
 - ✅ Automatic SoC detection (H616/H618) and card number detection
-- ✅ Pre-configured mixer settings for playback and recording
+- ✅ Complete mixer configuration (all WM8960 controls set to known defaults)
+- ✅ Multi-application audio support (dmix/dsnoop)
+- ✅ Hardware ALC, Noise Gate, and 3D Enhancement controls exposed
 - ✅ Works with Orange Pi OS (Bookworm, kernel 6.1.31)
 
 ## Hardware Compatibility
@@ -29,6 +31,12 @@ Complete audio support for WM8960-based audio HATs (including ReSpeaker 2-Mic HA
 - I2C tools installed
 
 ## Quick Start
+
+### Update Your System
+
+```bash
+sudo apt update && sudo apt upgrade -y
+```
 
 ### Quick Setup (Recommended)
 
@@ -58,7 +66,25 @@ sudo reboot
 
 ### Testing Audio
 
-After reboot, test audio playback:
+After reboot, run the interactive test script:
+
+```bash
+# Full interactive test (diagnostics + playback + recording tests)
+cd WM8960_AudioHAT_OrangePiZero_Drivers
+sudo chmod +x scripts/test-audio.sh
+sudo ./scripts/test-audio.sh
+```
+
+```bash
+# Diagnostics only (no interactive prompts — useful for debugging).
+cd WM8960_AudioHAT_OrangePiZero_Drivers
+sudo chmod +x scripts/test-audio.sh
+sudo ./scripts/test-audio.sh --diagnostics-only
+```
+
+The test script checks: kernel module, I2C device, sound card, service status, ALSA config, mixer routing, and dmesg errors. Then it walks you through interactive playback and recording tests.
+
+Or test manually:
 
 ```bash
 # List audio devices (find the card number for ahub0wm8960)
@@ -104,12 +130,13 @@ This package provides:
    - Temporarily unbinds WM8960 driver
    - Configures PLL registers via I2C (24MHz → 12.288MHz for 48kHz audio)
    - Rebinds driver
-   - Sets optimal mixer levels
+   - Configures all WM8960 mixer controls to known defaults (playback routing, capture path, DAC/ADC settings, ALC, Noise Gate, 3D Enhancement, zero-cross detection)
 
-3. **ALSA Configuration** (`configs/wm8960.state`)
-   - Pre-configured mixer settings
-   - Optimal headphone/speaker volumes
-   - Proper audio routing
+3. **ALSA Configuration** (`configs/asound.conf`)
+   - Sets WM8960 as default audio device
+   - dmix plugin for multi-application playback
+   - dsnoop plugin for multi-application recording
+   - Automatic format/rate conversion via plug plugin
 
 ## Uninstalling
 
@@ -146,7 +173,7 @@ WM8960_AudioHAT_OrangePiZero_Drivers/
 │   ├── KERNEL.md                      # Kernel build/install guide
 │   └── *.tar.gz                       # Pre-compiled kernel with WM8960 support
 ├── scripts/                            # Utility scripts
-│   ├── test-audio.sh                  # Quick audio test
+│   ├── test-audio.sh                  # Diagnostics and interactive audio tests
 │   ├── install-kernel.sh             # Kernel installation (used by quick-setup)
 │   └── extract-kernel.sh            # Build tool: package kernel from device
 └── docs/                               # Documentation
@@ -207,11 +234,11 @@ amixer -c ahub0wm8960 sset 'Capture' 45
 
 # Set input boost gain (0-3, default: 2)
 # 0 = mute, 1 = +13dB, 2 = +20dB, 3 = +29dB
-amixer -c ahub0wm8960 cset numid=10 2   # Left Input Boost LINPUT1 Volume
-amixer -c ahub0wm8960 cset numid=9 2    # Right Input Boost RINPUT1 Volume
+amixer -c ahub0wm8960 cset name='Left Input Boost Mixer LINPUT1 Volume' 2
+amixer -c ahub0wm8960 cset name='Right Input Boost Mixer RINPUT1 Volume' 2
 
 # Set ADC digital volume (0-255, default: 210)
-amixer -c ahub0wm8960 cset numid=37 210,210
+amixer -c ahub0wm8960 cset name='ADC PCM Capture Volume' 210,210
 ```
 
 **Signal path overview:**
@@ -222,6 +249,57 @@ The WM8960 audio signal flows through these mixer stages:
 - **Capture:** LINPUT1/RINPUT1 → Boost Mixer → Input Mixer (Boost switch) → ADC
 
 All routing switches and volumes are configured automatically by the PLL configuration service at boot. Use the commands above to adjust levels after boot if needed.
+
+**Saving custom mixer settings:**
+
+If you adjust volumes or enable features like ALC, save your settings to persist across reboots:
+
+```bash
+# Save current mixer state to disk
+sudo alsactl store ahub0wm8960
+```
+
+On first boot, the service applies defaults and saves them. On subsequent boots, it restores your saved settings instead. To reset back to factory defaults:
+
+```bash
+# Option 1: Reset defaults immediately (no reboot needed)
+sudo /usr/local/bin/wm8960-pll-config.sh --reset-defaults
+
+# Option 2: Reset on next reboot
+# WARNING: This removes saved state for ALL sound cards, not just WM8960
+sudo rm /var/lib/alsa/asound.state
+sudo reboot
+```
+
+**Discovering control names:**
+
+Control names may vary between kernel or driver versions. To list the available controls on your system:
+
+```bash
+amixer -c ahub0wm8960 scontrols   # Simple control names (for sset/sget)
+amixer -c ahub0wm8960 controls    # All controls including hardware-level (for cset/cget)
+```
+
+**WM8960 hardware features (disabled by default, enable as needed):**
+
+```bash
+# 3D Stereo Enhancement — widens the stereo image
+amixer -c ahub0wm8960 sset '3D' on
+amixer -c ahub0wm8960 sset '3D Volume' 10       # 0-15
+
+# Automatic Level Control (ALC) — hardware AGC for microphone input
+# Automatically adjusts capture gain to maintain consistent recording levels
+amixer -c ahub0wm8960 sset 'ALC Function' 'Stereo'  # Off / Right / Left / Stereo
+amixer -c ahub0wm8960 sset 'ALC Max Gain' 7      # 0-7
+amixer -c ahub0wm8960 sset 'ALC Target' 4         # 0-15
+
+# Noise Gate — mutes input below a threshold (use with ALC)
+amixer -c ahub0wm8960 sset 'Noise Gate' on
+amixer -c ahub0wm8960 sset 'Noise Gate Threshold' 3  # 0-31
+
+# ADC High Pass Filter — removes DC offset from recordings
+amixer -c ahub0wm8960 sset 'ADC High Pass Filter' on
+```
 
 ### Recording Audio
 
