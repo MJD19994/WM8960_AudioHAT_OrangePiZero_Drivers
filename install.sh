@@ -49,6 +49,19 @@ log_debug() {
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
+# Detect OS: Armbian vs Orange Pi OS
+DISTRO="orangepi"
+detect_os() {
+    if [ -f /etc/armbian-release ]; then
+        DISTRO="armbian"
+        log_info "Detected OS: Armbian"
+    else
+        DISTRO="orangepi"
+        log_info "Detected OS: Orange Pi OS"
+    fi
+    log_debug "DISTRO=$DISTRO"
+}
+
 check_root() {
     if [ "$EUID" -ne 0 ]; then
         log_error "This script must be run as root"
@@ -70,19 +83,17 @@ check_prerequisites() {
     # Check kernel version
     KERNEL_VER=$(uname -r)
     log_info "Detected kernel: $KERNEL_VER"
-    
-    if [[ ! "$KERNEL_VER" =~ "6.1.31" ]]; then
-        log_warn "This installation was tested on kernel 6.1.31"
+
+    if [ "$DISTRO" = "orangepi" ] && [[ ! "$KERNEL_VER" =~ "6.1.31" ]]; then
+        log_warn "Orange Pi OS installation was tested on kernel 6.1.31"
         log_warn "Your kernel is: $KERNEL_VER"
         if [ -t 0 ]; then
-            # Interactive terminal — ask user
             read -p "Continue anyway? (y/N) " -n 1 -r
             echo
             if [[ ! $REPLY =~ ^[Yy]$ ]]; then
                 exit 1
             fi
         else
-            # Non-interactive (called from quick-setup.sh) — warn and continue
             log_warn "Non-interactive mode, continuing anyway..."
         fi
     fi
@@ -141,8 +152,12 @@ patch_dtb() {
         exit 1
     fi
 
-    # Compile the WM8960 overlay from source
-    DTS_SOURCE="$SCRIPT_DIR/overlays-orangepi/sun50i-h618-wm8960-working.dts"
+    # Select and compile the WM8960 overlay from source
+    if [ "$DISTRO" = "armbian" ]; then
+        DTS_SOURCE="$SCRIPT_DIR/overlays-orangepi/sun50i-h618-wm8960-armbian.dts"
+    else
+        DTS_SOURCE="$SCRIPT_DIR/overlays-orangepi/sun50i-h618-wm8960-working.dts"
+    fi
     if [ ! -f "$DTS_SOURCE" ]; then
         log_error "Overlay source not found: $DTS_SOURCE"
         exit 1
@@ -230,12 +245,12 @@ print_next_steps() {
     log_info "Installation complete!"
     echo ""
     echo "Next steps:"
-    echo "1. Reboot your Orange Pi: sudo reboot"
+    echo "1. Reboot: sudo reboot"
     echo "2. After reboot, test audio with:"
-    echo "   speaker-test -D plughw:ahub0wm8960,0 -c 2 -r 48000 -t sine -f 1000 -l 1"
+    echo "   speaker-test -D default -c 2 -r 48000 -t sine -f 1000 -l 1"
     echo ""
     echo "Notes:"
-    echo "- Card 3 is the WM8960 (ahub0wm8960)"
+    echo "- Sound card name: ahub0wm8960"
     echo "- Both headphones and speaker will work simultaneously"
     echo "- Service status: systemctl status wm8960-audio.service"
     echo "- Logs: journalctl -u wm8960-audio.service"
@@ -247,6 +262,7 @@ log_info "WM8960 Audio HAT Installation for Orange Pi Zero 2W"
 echo ""
 
 check_root
+detect_os
 check_prerequisites
 patch_dtb
 install_service

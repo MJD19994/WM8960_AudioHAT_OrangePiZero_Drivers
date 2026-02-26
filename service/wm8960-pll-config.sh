@@ -34,11 +34,19 @@ for arg in "$@"; do
     esac
 done
 
-I2C_BUS=2
 WM8960_ADDR=0x1a
 DRIVER_PATH="/sys/bus/i2c/drivers/wm8960"
 
-# Build device identifier (e.g., "$DEVICE_ID" from I2C_BUS=2 and WM8960_ADDR=0x1a)
+# Auto-detect I2C bus from sysfs (bus number varies: 2 on Orange Pi OS, 3 on Armbian)
+if [ -z "$I2C_BUS" ]; then
+    I2C_BUS=$(find /sys/bus/i2c/devices/ -maxdepth 1 -name '*-001a' 2>/dev/null \
+              | head -1 | grep -oP '\d+(?=-001a)' || true)
+    if [ -z "$I2C_BUS" ]; then
+        I2C_BUS=2  # fallback for Orange Pi OS default
+    fi
+fi
+
+# Build device identifier (e.g., "2-001a" from I2C_BUS=2 and WM8960_ADDR=0x1a)
 # Allow override via environment variable
 if [ -z "$DEVICE_ID" ]; then
     DEVICE_ID="${I2C_BUS}-$(printf '%04x' $((WM8960_ADDR)))"

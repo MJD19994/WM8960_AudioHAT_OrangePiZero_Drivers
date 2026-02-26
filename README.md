@@ -13,7 +13,7 @@ Complete audio support for WM8960-based audio HATs (including ReSpeaker 2-Mic HA
 - ✅ Complete mixer configuration (all WM8960 controls set to known defaults)
 - ✅ Multi-application audio support (dmix/dsnoop)
 - ✅ Hardware ALC, Noise Gate, and 3D Enhancement controls exposed
-- ✅ Works with Orange Pi OS (Bookworm, kernel 6.1.31)
+- ✅ Works with Orange Pi OS (Bookworm, kernel 6.1.31) or Armbian (Trixie, Kernel 6.12.74)
 
 ## Hardware Compatibility
 
@@ -25,10 +25,13 @@ Complete audio support for WM8960-based audio HATs (including ReSpeaker 2-Mic HA
 - Orange Pi boards with Allwinner H616 (auto-detection implemented)
 - Other WM8960-based audio HATs
 
-**Requirements:**
+**Supported OS:**
 - [Orange Pi OS 1.0.2 Bookworm (kernel 6.1.31-orangepi)](https://drive.google.com/drive/folders/1cvPUtPOmGfOSxilAHUgq_UqZK5HmzH0t)
-- WM8960 codec support compiled into kernel (See KERNEL.md)
+- [Armbian Trixie (kernel 6.12.74-current-sunxi64)](https://www.armbian.com/orangepi-zero2w/)
+
+**Requirements:**
 - I2C tools installed
+- For Armbian: kernel headers and build tools (installed automatically by the setup script)
 
 ## Quick Start
 
@@ -50,7 +53,9 @@ sudo ./quick-setup.sh
 sudo reboot
 ```
 
-If the kernel already has WM8960 support, the kernel step is automatically skipped.
+The installer automatically detects your OS (Orange Pi OS or Armbian) and handles the differences:
+- **Orange Pi OS**: Installs the pre-compiled kernel with WM8960 support (if needed)
+- **Armbian**: Builds the WM8960 module from source against your kernel headers
 
 ### Driver-Only Installation
 
@@ -103,7 +108,7 @@ arecord -D plughw:ahub0wm8960,0 -r 48000 -c 2 -f S16_LE -t wav -d 5 test.wav
 aplay -D plughw:ahub0wm8960,0 test.wav
 ```
 
-**Note:** The WM8960 appears as **ahub0wm8960** sound card. The card number may vary (typically card 3), but using the card name ensures portability. You can also use `-D default` to use the system default audio device (configured to WM8960 in `/etc/asound.conf`).
+**Note:** The WM8960 appears as **ahub0wm8960** sound card. The card number varies by OS (typically card 3 on Orange Pi OS, card 0 on Armbian), so always use the card name or `-D default` for portability.
 
 ## How It Works
 
@@ -119,11 +124,12 @@ Without PLL configuration, you get:
 
 This package provides:
 
-1. **Device Tree Patching** (`overlays-orangepi/sun50i-h618-wm8960-working.dts`)
+1. **Device Tree Patching** (OS-specific overlay selected automatically)
    - Compiled and applied to the base DTB at install time using `fdtoverlay`
    - Configures I2S0 pins (BCLK, LRCK, DOUT, DIN)
    - Sets up AHUB audio subsystem
    - Enables I2C1 and declares WM8960 codec at address 0x1a
+   - Armbian overlay additionally enables AHUB DAM register space and I2C pin muxing
 
 2. **PLL Configuration Service** (`service/wm8960-pll-config.sh`)
    - Runs at boot via systemd
@@ -149,7 +155,7 @@ sudo reboot
 
 This safely removes the systemd service, restores the original device tree, and removes ALSA config files. Your existing ALSA configuration is backed up before removal.
 
-**Note:** The uninstall script does not roll back kernel changes. The WM8960-enabled kernel is safe to keep — it does not affect other audio devices or system stability. If you need to revert to a different kernel, you will need to install one manually.
+**Note:** On Armbian, the uninstall script also removes the WM8960 kernel module that was built from source. On Orange Pi OS, the uninstall does not roll back kernel changes — the WM8960-enabled kernel is safe to keep.
 
 ## Project Structure
 
@@ -157,24 +163,25 @@ This safely removes the systemd service, restores the original device tree, and 
 WM8960_AudioHAT_OrangePiZero_Drivers/
 ├── README.md                           # This file
 ├── LICENSE                             # License
-├── quick-setup.sh                      # All-in-one setup (kernel + driver)
-├── install.sh                          # Driver-only installation (auto-detects H616/H618)
+├── quick-setup.sh                      # All-in-one setup (kernel/module + driver)
+├── install.sh                          # Driver-only installation (auto-detects OS + SoC)
 ├── uninstall.sh                        # Uninstallation script
 ├── overlays-orangepi/                  # Device tree overlay sources
-│   ├── sun50i-h616-wm8960-working.dts # H616 variant (compiled and applied at install time)
-│   └── sun50i-h618-wm8960-working.dts # H618 variant (compiled and applied at install time)
+│   ├── sun50i-h616-wm8960-working.dts # H616 variant
+│   ├── sun50i-h618-wm8960-working.dts # H618 variant (Orange Pi OS)
+│   └── sun50i-h618-wm8960-armbian.dts # H618 variant (Armbian)
 ├── service/                            # System services
 │   ├── wm8960-pll-config.sh           # PLL configuration script
 │   └── wm8960-audio.service           # Systemd service
 ├── configs/                            # ALSA configuration
-│   ├── asound.conf                    # ALSA config (sets default device)
-│   └── wm8960.state                   # Mixer state
-├── kernel/                             # Kernel resources
+│   └── asound.conf                    # ALSA config (sets default device)
+├── kernel/                             # Kernel resources (Orange Pi OS only)
 │   ├── KERNEL.md                      # Kernel build/install guide
 │   └── *.tar.gz                       # Pre-compiled kernel with WM8960 support
 ├── scripts/                            # Utility scripts
 │   ├── test-audio.sh                  # Diagnostics and interactive audio tests
-│   ├── install-kernel.sh             # Kernel installation (used by quick-setup)
+│   ├── build-module.sh               # Build WM8960 module from source (Armbian)
+│   ├── install-kernel.sh             # Kernel installation (Orange Pi OS)
 │   └── extract-kernel.sh            # Build tool: package kernel from device
 └── docs/                               # Documentation
     └── hardware/                       # Hardware reference
@@ -320,7 +327,7 @@ aplay -D plughw:ahub0wm8960,0 recording.wav
 
 The WM8960 hardware runs natively at **48kHz**. Other sample rates (16kHz, 8kHz, 44.1kHz, etc.) are transparently resampled by ALSA in software when using the `default` audio device.
 
-**Important:** Always use the `default` ALSA device — never open `hw:3,0` directly at non-48kHz rates, as this bypasses resampling and produces garbled audio or can lock up the codec until reboot.
+**Important:** Always use the `default` ALSA device — never open `hw:N,0` directly at non-48kHz rates, as this bypasses resampling and produces garbled audio or can lock up the codec until reboot.
 
 ```bash
 # Playback at any sample rate (ALSA resamples to 48kHz automatically)
@@ -333,7 +340,7 @@ arecord -D default -r 16000 -c 1 -f S16_LE -d 5 voice_recording.wav
 arecord -D default -r 48000 -c 2 -f S16_LE -d 5 recording.wav
 ```
 
-**For voice assistant and speech-to-text pipelines** (Google STT, OpenAI Whisper, Home Assistant, etc.): Most STT engines expect 16kHz mono audio. Simply configure your application to use the `default` ALSA device — the dmix/dsnoop layer handles the 48kHz↔16kHz conversion automatically. Do not specify a hardware device like `hw:3,0` or `plughw:3,0` directly.
+**For voice assistant and speech-to-text pipelines** (Google STT, OpenAI Whisper, Home Assistant, etc.): Most STT engines expect 16kHz mono audio. Simply configure your application to use the `default` ALSA device — the dmix/dsnoop layer handles the 48kHz↔16kHz conversion automatically.
 
 Example with Python `sounddevice`:
 ```python
@@ -343,7 +350,7 @@ audio = sd.rec(int(5 * 16000), samplerate=16000, channels=1, dtype='int16')
 sd.wait()
 ```
 
-| Rate | Playback (`default`) | Recording (`default`) | Direct (`hw:3,0`) |
+| Rate | Playback (`default`) | Recording (`default`) | Direct (`hw:N,0`) |
 |------|---------------------|----------------------|-------------------|
 | 48000 Hz | Native | Native | Works |
 | 44100 Hz | Resampled | Resampled | Garbled |
@@ -461,7 +468,7 @@ i2cset -y 2 0x1a 0x04 0x01  # Switch SYSCLK to PLL
 echo "$DEVICE_ID" > /sys/bus/i2c/drivers/wm8960/bind
 ```
 
-**Note:** The device ID format is `<linux-bus>-<address>` where the bus number is the **Linux bus number** (check with `i2cdetect -l`) and address is a 4-digit hex value. On the Orange Pi Zero 2W, hardware I2C1 appears as Linux bus 2, so the default device ID is `2-001a`.
+**Note:** The device ID format is `<linux-bus>-<address>` where the bus number is the **Linux bus number** (check with `i2cdetect -l`) and address is a 4-digit hex value. The I2C bus number varies by OS: bus 2 on Orange Pi OS, bus 3 on Armbian. The PLL configuration script auto-detects the correct bus.
 
 ## Contributing
 
@@ -494,4 +501,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-**Status**: ✅ Working on Orange Pi boards with Allwinner H616/H618 SoCs (kernel 6.1.31-orangepi)
+**Status**: ✅ Working on Orange Pi Zero 2W (H618) with Orange Pi OS (kernel 6.1.31) and Armbian Trixie (kernel 6.12.74)

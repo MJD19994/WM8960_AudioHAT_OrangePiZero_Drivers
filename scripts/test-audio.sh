@@ -52,17 +52,23 @@ else
 fi
 
 # 2. Check I2C device
+# Auto-detect I2C bus (bus 2 on Orange Pi OS, bus 3 on Armbian)
 # When the WM8960 driver is bound, i2cdetect shows "UU" instead of "1a"
+I2C_BUS=$(find /sys/bus/i2c/devices/ -maxdepth 1 -name '*-001a' 2>/dev/null \
+          | head -1 | grep -oP '\d+(?=-001a)' || true)
+if [ -z "$I2C_BUS" ]; then
+    I2C_BUS=2  # fallback
+fi
 if command -v i2cdetect >/dev/null 2>&1; then
-    I2C_OUTPUT=$(i2cdetect -y 2 2>/dev/null || true)
+    I2C_OUTPUT=$(i2cdetect -y "$I2C_BUS" 2>/dev/null || true)
     if echo "$I2C_OUTPUT" | grep -qE "\b(1a|UU)\b" 2>/dev/null; then
         if echo "$I2C_OUTPUT" | grep -q "UU" 2>/dev/null; then
-            pass "WM8960 detected on I2C bus 2 at 0x1a (driver bound)"
+            pass "WM8960 detected on I2C bus $I2C_BUS at 0x1a (driver bound)"
         else
-            pass "WM8960 detected on I2C bus 2 at 0x1a"
+            pass "WM8960 detected on I2C bus $I2C_BUS at 0x1a"
         fi
     else
-        fail "WM8960 not detected on I2C bus 2"
+        fail "WM8960 not detected on I2C bus $I2C_BUS"
         ((ERRORS++))
     fi
 else

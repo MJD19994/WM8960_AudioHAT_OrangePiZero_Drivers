@@ -31,6 +31,18 @@ log_error() {
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
+# Detect OS: Armbian vs Orange Pi OS
+DISTRO="orangepi"
+detect_os() {
+    if [ -f /etc/armbian-release ]; then
+        DISTRO="armbian"
+        log_info "Detected OS: Armbian"
+    else
+        DISTRO="orangepi"
+        log_info "Detected OS: Orange Pi OS"
+    fi
+}
+
 check_root() {
     if [ "$EUID" -ne 0 ]; then
         log_error "This script must be run as root"
@@ -46,14 +58,21 @@ install_kernel() {
         return 0
     fi
 
-    log_warn "WM8960 kernel module not found, installing kernel..."
-
-    if [ ! -f "$SCRIPT_DIR/scripts/install-kernel.sh" ]; then
-        log_error "scripts/install-kernel.sh not found"
-        exit 1
+    if [ "$DISTRO" = "armbian" ]; then
+        log_info "Building WM8960 module from source for Armbian..."
+        if [ ! -f "$SCRIPT_DIR/scripts/build-module.sh" ]; then
+            log_error "scripts/build-module.sh not found"
+            exit 1
+        fi
+        bash "$SCRIPT_DIR/scripts/build-module.sh"
+    else
+        log_warn "WM8960 kernel module not found, installing kernel..."
+        if [ ! -f "$SCRIPT_DIR/scripts/install-kernel.sh" ]; then
+            log_error "scripts/install-kernel.sh not found"
+            exit 1
+        fi
+        bash "$SCRIPT_DIR/scripts/install-kernel.sh"
     fi
-
-    bash "$SCRIPT_DIR/scripts/install-kernel.sh"
 
     # Verify installation
     if modinfo snd_soc_wm8960 >/dev/null 2>&1; then
@@ -79,6 +98,7 @@ log_info "WM8960 Audio HAT Quick Setup"
 echo ""
 
 check_root
+detect_os
 install_kernel
 install_driver
 

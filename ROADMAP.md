@@ -1,19 +1,276 @@
-# Project Roadmap
+# WM8960 Audio HAT Drivers - Development Roadmap
 
-WM8960 Audio HAT Drivers for Orange Pi (H616/H618)
+> **Goal:** Build the most robust, feature-complete WM8960 Audio HAT driver package for Orange Pi boards (H616/H618), with first-class support for voice assistant and headless audio use cases.
 
-## Current State (v1.0)
+## Supported Hardware
 
-What we ship today:
+| Board | SoC | Status |
+|-------|-----|--------|
+| Orange Pi Zero 2W | H618 | Primary test board |
+| Orange Pi Zero 3 | H618 | Should work (untested) |
+| Orange Pi Zero 2 | H616 | Overlay exists (untested) |
 
-- Device tree overlay with fdtoverlay bake-in (works around broken U-Boot overlay mechanism)
-- Precompiled kernel with WM8960/I2S/audio modules (6.1.31-orangepi)
-- PLL configuration service (I2C register writes at boot)
-- Full mixer defaults with alsactl save/restore
-- ALSA asound.conf with dmix/dsnoop for multi-app audio
-- Install, uninstall, and quick-setup scripts
-- Diagnostic and interactive test script
-- H616/H618 auto-detection
+| Audio HAT | WM8960 | LEDs | Button | Status |
+|-----------|--------|------|--------|--------|
+| Generic WM8960 HATs | Yes | No | No | Primary test board |
+| Waveshare WM8960 Audio HAT | Yes | Power only | No | Planned |
+| Seeed/Keyestudio ReSpeaker 2-Mic | Yes | 3x APA102 | 1x GPIO | Planned |
+
+---
+
+## Phase 1 — Stability & Install Robustness
+
+Focus: Make install/uninstall bulletproof for first-time users.
+
+### 1.1 DTB Patching Idempotency
+- [x] Validate backup DTB is unpatched before using as overlay input
+- [x] Check for existing WM8960 node and skip if already patched
+- [x] Always patch from `.backup` file, never from current DTB
+
+### 1.2 Module Backup in Kernel Install
+- [x] Back up existing modules to timestamped directory before replacing
+- [x] Clean up backup automatically on success
+- [x] Print rollback instructions on failure (via EXIT trap)
+
+### 1.3 Non-Interactive Detection in Test Script
+- [x] Detect `[ ! -t 0 ]` (no TTY) and auto-switch to diagnostics-only mode
+- [x] Prevents `read -p` from hanging when run via pipe, cron, or SSH without pty
+
+### 1.4 Verbose/Debug Logging Mode
+- [x] `--verbose` / `-v` flag on `install.sh` with DTB path and symlink debug output
+- [x] `--verbose` / `-v` flag on `wm8960-pll-config.sh` with device wait, card detection, and mixer state debug output
+- [x] `--help` / `-h` flag on both scripts
+
+### 1.5 Clean Up Unused wm8960.state
+- [x] Removed `configs/wm8960.state` from repo (was installed but never read)
+- [x] `apply_mixer_defaults()` in `wm8960-pll-config.sh` is the authoritative factory defaults source
+- [x] `--reset-defaults` flag uses amixer commands, not state file
+
+### 1.6 Sample Rate Investigation
+- [x] Investigated WM8960 ADCDIV/DACDIV register-based multi-rate support
+- [x] Tested all rates 8kHz–48kHz on hardware — only 48kHz sounds correct on `hw:3,0`
+- [x] Confirmed kernel driver is in slave mode (does not reconfigure clocks)
+- [x] Attempted driver modification (3 approaches) — all failed due to AHUB machine driver bug
+- [x] Discovered root cause: Allwinner AHUB corrupts codec state on rate switching
+- [x] Verified ALSA software resampling via `default` device works for all rates (16kHz recording/playback confirmed)
+- [x] Documented sample rate behavior and voice assistant usage in README
+
+### 1.7 Quick Setup Script
+- [x] `quick-setup.sh` — single command for kernel + driver install
+- [x] Auto-detects if WM8960 kernel module is already present (skips kernel install)
+- [x] Delegates to existing `install.sh` for driver setup (no logic duplication)
+
+### 1.8 Uninstall Robustness
+- [ ] Test uninstall on a fully installed system and verify clean removal
+- [ ] Verify DTB restore works correctly (symlink removal + backup copy)
+- [ ] Add `--verbose` flag to `uninstall.sh` for consistency
+- [ ] Consider adding kernel rollback option (restore boot symlinks to previous kernel)
+
+---
+
+## Phase 2 — PulseAudio & PipeWire Support
+
+Focus: Work out-of-the-box with modern Linux audio stacks, not just raw ALSA.
+
+### 2.1 PulseAudio Configuration
+- [ ] Ship `default.pa` snippet for PulseAudio setups
+- [ ] Set WM8960 as default sink/source
+- [ ] Configure proper sample rate (48kHz native, resampling handled by PA)
+- [ ] Install conditionally (only if PulseAudio is present)
+
+### 2.2 PipeWire Configuration
+PipeWire is the default on many modern distros and **no WM8960 project provides this**.
+- [ ] Ship WirePlumber rules to set WM8960 as default sink/source
+- [ ] Configure appropriate buffer sizes and sample rates
+- [ ] Handle both playback and capture routing
+- [ ] Test coexistence with HDMI audio (if present)
+
+### 2.3 Audio Stack Detection in Installer
+- [ ] Detect which audio server is running (PipeWire, PulseAudio, or bare ALSA)
+- [ ] Install the appropriate configuration automatically
+- [ ] Log which audio stack was detected (helpful for troubleshooting)
+
+---
+
+## Phase 3 — Python Tools & Examples
+
+Focus: Give users a programmatic interface and practical examples.
+
+### 3.1 Device Discovery Utility
+- [ ] Python script to find WM8960 card index and device name programmatically
+- [ ] Handle multiple sound cards gracefully
+- [ ] Usable as a building block / importable module for other projects
+
+### 3.2 Recording Example
+- [ ] Python script using `sounddevice` or `pyaudio` to record from WM8960 mics
+- [ ] Save to WAV file
+- [ ] Support configurable sample rate (demonstrate 16kHz for voice, 48kHz for general)
+
+### 3.3 Playback Example
+- [ ] Python script to play WAV/MP3 files through the WM8960
+- [ ] Auto-detect WM8960 device (use discovery utility)
+
+### 3.4 Volume Control Utility
+- [ ] Python CLI tool to adjust WM8960 mixer controls without knowing `amixer` syntax
+- [ ] Named presets: `speakers`, `headphones`, `recording`, `voice`
+- [ ] `show` command to display current levels
+- [ ] `reset` command to restore factory defaults
+
+### 3.5 Audio Level Monitor
+- [ ] Real-time CLI VU meter display of input audio levels
+- [ ] Useful for verifying microphone input and adjusting gain
+- [ ] Configurable threshold indicators
+
+---
+
+## Phase 4 — Expanded Board & OS Support
+
+Focus: Support more Orange Pi models, HAT variants, and Linux distributions.
+
+### 4.1 Orange Pi Zero 3 (H618) Verification
+- [ ] Verify compatibility (same H618 SoC as Zero 2W)
+- [ ] Test with existing overlay and installer
+- [ ] Document any differences (pin routing, DTB naming)
+
+### 4.2 Orange Pi Zero 2 (H616) Verification
+- [ ] Test the existing H616 overlay on real hardware
+- [ ] Find a user or device for testing
+- [ ] Document compatibility status
+
+### 4.3 Waveshare WM8960 Audio HAT Compatibility
+- [ ] Test with the Waveshare variant (same WM8960, may differ in pinout)
+- [ ] Document any hardware differences
+- [ ] Create HAT-specific configuration if needed
+
+### 4.4 Armbian Support (High Priority)
+Armbian is the most popular community OS for Orange Pi boards.
+- [ ] Test install on Armbian Bookworm (BSP kernel) for Orange Pi Zero 2W
+- [ ] Identify DTB path differences and make installer auto-detect
+- [ ] Evaluate whether `armbian-add-overlay` can load our DTS directly
+- [ ] Determine if Armbian's built-in WM8960 kernel module works or if we need our own
+- [ ] Handle `/boot/armbianEnv.txt` vs `orangepiEnv.txt` differences
+- [ ] Make installer smart enough to handle both Orange Pi OS and Armbian
+- [ ] Test with Armbian desktop images (PipeWire default — ties into Phase 2)
+
+### 4.5 Mainline Kernel Investigation
+- [ ] Evaluate feasibility of mainline Linux kernels (6.6+)
+- [ ] Test if mainline `snd-soc-wm8960` module works with our overlay
+- [ ] Determine if I2S/AHUB support exists in mainline for H616/H618
+- [ ] Document findings and compatibility matrix
+
+### 4.6 DKMS Kernel Module Packaging
+- [ ] Evaluate building WM8960/I2S modules via DKMS instead of shipping a full kernel
+- [ ] Would allow compatibility with kernel upgrades without rebuilding
+- [ ] Requires kernel headers to be available on target system
+- [ ] Could eliminate the need for `install-kernel.sh` entirely
+
+---
+
+## Phase 5 — Advanced Audio Features
+
+Focus: Unlock the full potential of the WM8960 hardware.
+
+### 5.1 ALC (Automatic Level Control) Profiles
+- [ ] Create named presets for common ALC configurations
+- [ ] **Voice**: Optimized for speech recording (moderate attack/decay, narrow range)
+- [ ] **Music**: Gentle compression for music playback
+- [ ] **Conferencing**: Aggressive leveling for varying speaker distances
+- [ ] Apply via: `wm8960-profile voice` or similar utility
+
+### 5.2 EQ / 3D Enhancement Presets
+- [ ] Configure WM8960's built-in 3D stereo enhancement for different scenarios
+- [ ] Presets for: speakers vs headphones, small room vs large room
+- [ ] Document available hardware DSP controls
+
+### 5.3 Loopback / Monitor Mode
+- [ ] Enable hardware monitoring path (mic → speakers/headphones in real-time)
+- [ ] Useful for testing, karaoke, conferencing
+- [ ] Script or simple command to toggle on/off
+
+### 5.4 Bluetooth Audio Bridge
+- [ ] Guide for routing Bluetooth audio through WM8960 via PulseAudio/PipeWire
+- [ ] Play phone audio through HAT speakers
+- [ ] Use HAT microphones for Bluetooth calls
+- [ ] Depends on Phase 2 (PulseAudio/PipeWire support)
+
+### 5.5 ALSA Convenience Device Aliases
+- [ ] Add named ALSA device aliases in `asound.conf` for common use cases
+- [ ] `pcm.wm8960_voice` — 16kHz mono capture for voice assistants
+- [ ] `pcm.wm8960_music` — 48kHz stereo playback optimized for music
+- [ ] Document usage in README
+
+---
+
+## Phase 6 — Voice Assistant & Application Integration
+
+Focus: Practical application guides that show what you can build.
+
+### 6.1 Voice Assistant Quick-Start Guide
+- [ ] Home Assistant voice pipeline setup
+- [ ] OpenAI Whisper (local speech-to-text)
+- [ ] Google Assistant SDK
+- [ ] Amazon Alexa AVS
+- [ ] Document expected audio format (16kHz, 16-bit, mono via `default` device)
+
+### 6.2 Echo Cancellation Setup
+Without AEC, playing TTS through the speaker feeds back into the mic, breaking wake word detection.
+- [ ] PipeWire AEC config using `libpipewire-module-echo-cancel` (WebRTC backend)
+- [ ] PulseAudio AEC config using `module-echo-cancel`
+- [ ] ALSA AEC config using SpeexDSP plugin (for headless / ALSA-only setups)
+- [ ] Document which approach to use for which setup
+- [ ] *Note: No WM8960 HAT manufacturer provides this — differentiator*
+
+### 6.3 Music Player Integration
+- [ ] Guide for MPD (Music Player Daemon) with WM8960 HAT
+- [ ] Guide for Mopidy as a headless music streamer
+- [ ] ALSA device configuration for each
+
+### 6.4 Intercom / Baby Monitor Project
+- [ ] Example project combining recording + playback + network streaming
+- [ ] Practical use case demonstrating full-duplex audio
+
+---
+
+## Phase 7 — Hardware Extras (HAT-Dependent)
+
+Focus: Support additional hardware features on HATs that have them.
+
+### 7.1 APA102 LED Control (ReSpeaker HAT)
+- [ ] Python driver for 3 RGB LEDs (APA102 over SPI)
+- [ ] Patterns: audio level visualization, status indicators, custom animations
+- [ ] Install as optional component (skip on HATs without LEDs)
+
+### 7.2 User Button Support (ReSpeaker HAT)
+- [ ] GPIO button handler with configurable actions
+- [ ] Push-to-talk, play/pause, record toggle, custom command
+- [ ] Install as optional component
+
+### 7.3 Grove Connector Examples (ReSpeaker HAT)
+- [ ] Example code for I2C and digital Grove connectors
+- [ ] Sensor integration examples
+
+---
+
+## Completed Features
+
+Features already implemented and working.
+
+- [x] Device tree overlay with `fdtoverlay` bake-in (works around broken U-Boot overlay mechanism)
+- [x] Precompiled kernel with WM8960/I2S/audio modules (`6.1.31-orangepi`)
+- [x] PLL configuration service (I2C register writes at boot, unbind/rebind driver)
+- [x] Full mixer defaults with `alsactl save/restore` and `--reset-defaults` flag
+- [x] ALSA `asound.conf` with dmix/dsnoop/asym/plug for multi-app audio
+- [x] `install.sh` with DTB patching, service install, ALSA config, prerequisite checks
+- [x] `uninstall.sh` with service removal, DTB restore, config cleanup
+- [x] `quick-setup.sh` — single-command all-in-one installer (kernel + driver)
+- [x] `install-kernel.sh` with module backup, boot symlink management, initramfs generation
+- [x] `test-audio.sh` with 10 diagnostic checks + 4 interactive audio tests
+- [x] H616/H618 auto-detection in device tree overlay
+- [x] Non-interactive detection in test script (auto-skip prompts without TTY)
+- [x] `--verbose` debug logging in install and PLL config scripts
+- [x] DTB patching idempotency (backup validation, double-patch prevention)
+- [x] Module backup safety net in kernel installer
+- [x] Sample rate documentation (48kHz native, software resampling for other rates)
 
 ---
 
@@ -29,241 +286,64 @@ Research into Seeed Studio (seeed-voicecard), Waveshare, and Keyestudio driver p
 | dmix/dsnoop config | Yes | Yes | Yes |
 | Diagnostic/test script | Yes | No | No |
 | `--reset-defaults` flag | Yes | No | No |
+| `--verbose` debug mode | Yes | No | No |
+| Quick-setup (one command) | Yes | No | No |
 | PulseAudio config | No | Yes | No |
 | PipeWire config | No | No | No |
 | Python examples | No | Yes | No |
 | LED/button support | No | Yes | No |
 | Voice assistant guides | No | Yes | No |
+| Echo cancellation config | No | No | No |
 | Multi-board support | Partial | Yes | No |
 | DKMS kernel module | No | Yes | Yes |
 
-**Our strengths:** Test tooling, mixer management, fdtoverlay approach for non-Raspberry Pi boards, detailed documentation.
+**Our strengths:** Test tooling, mixer management, fdtoverlay approach for non-Raspberry Pi boards, verbose debugging, detailed documentation, idempotent installs.
 
-**Our gaps:** No PulseAudio/PipeWire support, no Python examples, no higher-level application guides.
+**Our gaps:** No PulseAudio/PipeWire support, no Python examples, no higher-level application guides, no DKMS.
 
 ---
 
-## Phase 1 — Stability & Install Robustness
+## Priority & Effort Matrix
 
-Focus: Make install/uninstall bulletproof for first-time users.
+| Phase | Impact | Effort | When |
+|-------|--------|--------|------|
+| Phase 1 — Stability | High | Low | **Done** |
+| Phase 2 — Audio Stacks | High | Medium | Next |
+| Phase 4.4 — Armbian | High | Medium | Next |
+| Phase 3 — Python Tools | Medium | Low-Medium | After Phase 2 |
+| Phase 5 — Advanced Audio | Medium | Low | After Phase 3 |
+| Phase 6 — Voice/Apps | High (user interest) | Medium | After Phase 2 |
+| Phase 4.6 — DKMS | High (maintainability) | High | When resources allow |
+| Phase 7 — Hardware Extras | Low | Medium | Community driven |
 
-### 1.1 DTB Patching Idempotency
-The install script can currently re-patch an already-patched DTB if run twice. Fix to always resolve back to the original unpatched DTB before applying the overlay.
+---
 
-### 1.2 Module Backup in Kernel Install
-`install-kernel.sh` does `rm -rf /lib/modules/...` before extracting new modules. Add a backup step so a failed mid-install doesn't leave the system without modules.
+## Investigation Notes
 
-### 1.3 Non-Interactive Detection in Test Script
-Interactive `read -p` prompts hang when run without a TTY (piped, cron, SSH without pty). Detect `[ -t 0 ]` and skip interactive tests automatically, running diagnostics only.
+### Sample Rate Architecture (2026-02-24/25)
 
-### 1.4 Verbose/Debug Logging Mode
-Add `--verbose` flag to `install.sh` and `wm8960-pll-config.sh` that logs detailed step-by-step output to help users troubleshoot failures.
-
-### 1.5 Clean Up Unused wm8960.state
-`configs/wm8960.state` is installed to `/etc/wm8960.state` but never used by the service (which uses `alsactl store/restore` with `/var/lib/alsa/asound.state`). Either remove it or repurpose it as a factory-defaults restore source.
-
-### 1.6 Sample Rate Flexibility
-Currently the PLL is configured for 12.288MHz SYSCLK (48kHz family only), and `asound.conf` hardcodes `rate 48000` in dmix/dsnoop. The ALSA `plug` layer handles software resampling transparently, so apps requesting 16kHz already work — but through conversion, not natively.
-
-**Investigation findings (WM8960 clock architecture):**
-
-The WM8960's ADCDIV/DACDIV registers can divide SYSCLK to produce multiple native rates from our existing 12.288MHz PLL:
+The WM8960's ADCDIV/DACDIV registers can divide SYSCLK to produce multiple native rates from our 12.288MHz PLL:
 
 | ADCDIV/DACDIV | Formula | Native Rate |
 |---|---|---|
-| ÷1 | 12288000 / (1 × 256) | 48000 Hz |
-| ÷1.5 | 12288000 / (1.5 × 256) | 32000 Hz |
-| ÷2 | 12288000 / (2 × 256) | 24000 Hz |
-| ÷3 | 12288000 / (3 × 256) | 16000 Hz |
-| ÷4 | 12288000 / (4 × 256) | 12000 Hz |
-| ÷6 | 12288000 / (6 × 256) | 8000 Hz |
+| /1 | 12288000 / (1 x 256) | 48000 Hz |
+| /1.5 | 12288000 / (1.5 x 256) | 32000 Hz |
+| /2 | 12288000 / (2 x 256) | 24000 Hz |
+| /3 | 12288000 / (3 x 256) | 16000 Hz |
+| /4 | 12288000 / (4 x 256) | 12000 Hz |
+| /6 | 12288000 / (6 x 256) | 8000 Hz |
 
-The kernel's `snd-soc-wm8960` driver has `hw_params` callbacks that can reprogram these dividers dynamically when an app opens the device at a different rate. However, our PLL script writes register 0x04 (CLOCKING1) directly via I2C before rebinding the driver, which may conflict with the kernel's own clock management.
+However, the kernel driver is in slave mode and does not reconfigure clocks. Every stream open logs: `"slave mode, but proceeding with no clock configuration"`. The hardware clock stays at 48kHz regardless of the requested rate.
 
-**Test results (confirmed on device 2026-02-24):**
+**Driver modification attempts (3 approaches, all failed):**
+1. Read `wlf,mclk-frequency` DT property at probe, set `WM8960_SYSCLK_AUTO` — AHUB machine driver calls `set_dai_sysclk(freq=0)` at stream open, overwriting values
+2. Store DT value in `dt_mclk_freq`, restore in `configure_clocking` fallback — PLL disable/enable cycle killed DAC output
+3. Configure PLL at probe, only change dividers at runtime — also killed DAC output
 
-The kernel driver is in slave mode and **does not reconfigure clocks**. Every stream open logs: `"slave mode, but proceeding with no clock configuration"`. The driver accepts any rate from 8-48kHz at the ALSA level but the hardware clock stays at whatever our PLL script set (48kHz). Non-48kHz rates produce garbled/pitched audio on `hw:3,0`.
+**Root cause:** The Allwinner AHUB corrupts the WM8960 codec state when switching sample rates. Even with the stock unmodified driver, playing 16kHz on `hw:3,0` then playing 48kHz results in silence, requiring a full reboot. This is a bug in the AHUB machine driver (built-in `=y`, not modifiable).
 
-| Rate | Accepted? | Sounds Correct? | Why |
-|------|-----------|-----------------|-----|
-| 48000 Hz | Yes | Yes | Matches PLL SYSCLK |
-| 44100 Hz | Yes | No (subtle pitch shift) | 48kHz clock, ~9% fast |
-| 32000 Hz | Yes | No (pitched up) | 48kHz clock, 1.5× fast |
-| 24000 Hz | No | N/A | Rejected by driver |
-| 16000 Hz | Yes | No (chipmunk) | 48kHz clock, 3× fast |
-| 8000 Hz | Yes | No (extreme chipmunk) | 48kHz clock, 6× fast |
-
-**Conclusion:** Only 48kHz works natively. All other rates must go through ALSA software resampling (the `plug` layer in our `asound.conf`). This is how Seeed and Waveshare handle it too — they also hardcode their dmix/dsnoop to one rate and let ALSA resample.
-
-**The good news:** Apps using the default ALSA device (`plug` → `asymed` → `dmix`/`dsnoop`) get automatic transparent resampling. A voice pipeline requesting 16kHz will work correctly — ALSA converts 48kHz↔16kHz in software. The quality is fine for speech.
-
-**Driver modification attempt (2026-02-25):**
-
-We attempted to patch the kernel driver (`snd-soc-wm8960.ko`) to enable native multi-rate support via PLL reconfiguration. Multiple approaches were tried:
-- v1: Read `wlf,mclk-frequency` DT property at probe, set `WM8960_SYSCLK_AUTO` mode — failed because the AHUB machine driver calls `set_dai_sysclk(freq=0)` at stream open, overwriting our values
-- v2: Store DT value separately (`dt_mclk_freq`), restore in `configure_clocking` fallback — PLL disable/enable cycle caused total audio loss (DAC stops producing output)
-- v3: Configure PLL once at probe, only change dividers at runtime — also caused audio loss
-
-**Root cause discovered:** The Allwinner AHUB **corrupts the WM8960 codec state when switching sample rates**. Even with the completely stock unmodified driver, playing 16kHz on `hw:3,0` then playing 48kHz results in silence — requiring a full reboot to recover. This is a bug in the AHUB machine driver (built-in `=y`, not modifiable).
-
-**Final verdict:** Native multi-rate support is not feasible without modifying the built-in AHUB machine driver. Software resampling via ALSA dmix is the correct and proven approach.
-
-**Remaining action items:**
-- Document in README that 48kHz is the native hardware rate and other rates are software-resampled
-- Document that apps must use the `default` ALSA device (never `hw:3,0` directly for non-48kHz rates)
-- Consider adding a convenience ALSA device alias (e.g., `pcm.wm8960_16k`) for clarity
+**Solution:** Software resampling via ALSA dmix (same approach as Seeed/Waveshare). Apps using the `default` ALSA device get automatic transparent 48kHz<->any-rate conversion. Confirmed working for both 16kHz playback and 16kHz recording.
 
 ---
 
-## Phase 2 — PulseAudio & PipeWire Support
-
-Focus: Work out-of-the-box with modern Linux audio stacks, not just raw ALSA.
-
-### 2.1 PulseAudio Configuration
-Create a PulseAudio profile or `default.pa` snippet that:
-- Sets the WM8960 as the default sink/source
-- Uses the ALSA dmix/dsnoop underneath (or direct hardware access)
-- Works alongside the existing asound.conf
-
-### 2.2 PipeWire Configuration
-PipeWire is the default on many modern distros and **no WM8960 project provides this**. Create PipeWire/WirePlumber config that:
-- Defines the WM8960 as the default audio device
-- Sets appropriate buffer sizes and sample rates
-- Handles both playback and capture routing
-
-### 2.3 Audio Stack Detection in Installer
-Detect which audio server is running (PulseAudio, PipeWire, or bare ALSA) and install the appropriate configuration automatically.
-
----
-
-## Phase 3 — Python Tools & Examples
-
-Focus: Give users a programmatic interface and practical examples.
-
-### 3.1 Device Discovery Utility
-Python script to find the WM8960 sound card index and device name programmatically. Useful as a building block for other projects.
-
-### 3.2 Recording Example
-Simple Python script using `sounddevice` or `pyaudio` to record audio from the WM8960 microphones and save to WAV.
-
-### 3.3 Playback Example
-Python script to play WAV/MP3 files through the WM8960.
-
-### 3.4 Volume Control Utility
-Python CLI tool or simple TUI to adjust WM8960 mixer controls (master volume, mic gain, speaker/headphone select) without needing to know `amixer` syntax.
-
-### 3.5 Audio Level Monitor
-Real-time CLI display of input audio levels (VU meter style). Useful for verifying microphone input is working and adjusting gain.
-
----
-
-## Phase 4 — Expanded Board Support
-
-Focus: Support more Orange Pi models and audio HATs beyond our tested config.
-
-### 4.1 Orange Pi Zero 3 Support
-The Zero 3 uses the same H618 SoC. Verify and document compatibility, create board-specific overlay if needed.
-
-### 4.2 Orange Pi Zero 2 (H616) Verification
-We have an H616 overlay but haven't tested it. Find a user or device to verify.
-
-### 4.3 Waveshare WM8960 Audio HAT Compatibility
-The Waveshare HAT uses the same WM8960 codec but may have different pinout or additional components. Test and document.
-
-### 4.4 Armbian Support
-Armbian is the most widely used community OS for Orange Pi boards and would significantly expand our user base. Key differences from Orange Pi OS:
-
-- **Kernel**: Armbian ships both vendor BSP kernels (6.1.x) and mainline kernels (6.6+). The BSP variant should be close to compatible; mainline will need investigation.
-- **Device tree**: Armbian has its own DTB build pipeline and overlay mechanism (`armbian-add-overlay`). Our fdtoverlay approach should still work, but the base DTB path and naming may differ.
-- **Boot config**: Armbian uses `/boot/armbianEnv.txt` instead of `orangepiEnv.txt`, and has a different U-Boot overlay loading mechanism that may actually work for our overlay (unlike Orange Pi's broken one).
-- **Audio stack**: Armbian Bookworm images may ship PipeWire by default instead of bare ALSA, tying into Phase 2 work.
-- **Module packaging**: Armbian kernels use different vermagic strings. Our precompiled kernel package won't work — we'd need either DKMS or Armbian-specific kernel modules.
-
-**Action items:**
-- Test install on Armbian Bookworm (BSP kernel) for Orange Pi Zero 2W
-- Identify DTB path differences and make installer auto-detect
-- Evaluate whether `armbian-add-overlay` can load our DTS directly (avoiding fdtoverlay)
-- Determine if Armbian's built-in WM8960 kernel module works or if we need to ship our own
-- Create Armbian-specific install path or make the existing installer smart enough to handle both
-
-### 4.5 Mainline Kernel Investigation
-Evaluate feasibility of supporting mainline Linux kernels (6.6+) instead of only the vendor BSP 6.1.31. This would future-proof the project as Orange Pi updates their OS releases. Relevant for both Armbian mainline images and future Orange Pi OS updates.
-
----
-
-## Phase 5 — Advanced Audio Features
-
-Focus: Unlock the full potential of the WM8960 hardware.
-
-### 5.1 ALC (Automatic Level Control) Profiles
-Create named presets for common ALC configurations:
-- **Voice**: Optimized for speech recording (moderate attack/decay, narrow range)
-- **Music**: Gentle compression for music playback
-- **Conferencing**: Aggressive leveling for varying speaker distances
-- Users could apply via: `wm8960-profile voice`
-
-### 5.2 EQ / 3D Enhancement Presets
-The WM8960 has built-in 3D stereo enhancement. Create presets that configure it for different use cases (speakers vs headphones, room size).
-
-### 5.3 Loopback / Monitor Mode
-Enable hardware monitoring path so users can hear microphone input through speakers/headphones in real-time (useful for testing, karaoke, etc).
-
-### 5.4 Bluetooth Audio Bridge
-Guide and/or script for routing Bluetooth audio through the WM8960 (using PulseAudio/PipeWire as the bridge). Play phone audio through the HAT speakers, or use the HAT microphones for Bluetooth calls.
-
----
-
-## Phase 6 — Voice Assistant & Application Integration
-
-Focus: Practical application guides that show what you can build.
-
-### 6.1 Voice Assistant Quick-Start Guide
-Documentation for setting up:
-- Google Assistant
-- Amazon Alexa
-- OpenAI Whisper (local speech-to-text)
-- Home Assistant voice pipeline
-
-### 6.2 Intercom / Baby Monitor Project
-Example project combining recording + playback + network streaming for a practical use case.
-
-### 6.3 Music Player Integration
-Guide for setting up MPD (Music Player Daemon) or Mopidy with the WM8960 HAT for a headless music player/streamer.
-
----
-
-## Phase 7 — Hardware Extras (HAT-Dependent)
-
-Focus: Support additional hardware features on HATs that have them.
-
-### 7.1 APA102 LED Control (ReSpeaker HAT)
-Python driver for the 3 RGB LEDs on the ReSpeaker 2-Mic HAT. Patterns for:
-- Audio level visualization
-- Status indicators (recording, playing, error)
-- Custom animations
-
-### 7.2 User Button Support (ReSpeaker HAT)
-GPIO17 button handler with configurable actions:
-- Push-to-talk
-- Play/pause
-- Record toggle
-- Custom command execution
-
-### 7.3 Grove Connector Examples (ReSpeaker HAT)
-Example code for using the I2C and digital Grove connectors for sensor integration.
-
----
-
-## Contribution & Priority Notes
-
-- **Phases 1-2** are high priority — they fix real usability issues and fill the biggest feature gaps
-- **Sample rate flexibility (1.6)** — native multi-rate is not feasible (AHUB bug), but software resampling via `default` device works perfectly for 16kHz voice pipelines
-- **Armbian support (4.4)** is high priority — it's the most popular community OS for these boards and would greatly expand reach
-- **Phase 3** is medium priority — makes the project much more accessible to Python developers
-- **Phases 5-7** are lower priority and can be tackled based on community interest
-- PipeWire support (2.2) is a unique differentiator — no other WM8960 project provides it
-- Voice assistant integration (6.1) drives the most user interest based on forum activity
-
----
-
-*Last updated: 2026-02-25*
+*Last updated: 2026-02-26*
