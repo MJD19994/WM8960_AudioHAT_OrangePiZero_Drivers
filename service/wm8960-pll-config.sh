@@ -12,10 +12,14 @@ set -e
 
 # Parse command-line options
 RESET_DEFAULTS=false
+VERBOSE=false
 for arg in "$@"; do
     case "$arg" in
         --reset-defaults)
             RESET_DEFAULTS=true
+            ;;
+        --verbose|-v)
+            VERBOSE=true
             ;;
         --help|-h)
             echo "Usage: $(basename "$0") [OPTIONS]"
@@ -23,6 +27,7 @@ for arg in "$@"; do
             echo "Options:"
             echo "  --reset-defaults  Force-apply factory mixer defaults, replacing any"
             echo "                    custom settings saved with 'alsactl store'"
+            echo "  --verbose, -v     Show detailed step-by-step output for troubleshooting"
             echo "  --help, -h        Show this help message"
             exit 0
             ;;
@@ -57,19 +62,29 @@ log() {
     echo "[WM8960-PLL] $1"
 }
 
+log_debug() {
+    if [ "$VERBOSE" = true ]; then
+        echo "[WM8960-PLL] [DEBUG] $1"
+    fi
+}
+
 wait_for_device() {
     local max_wait=10
     local count=0
 
+    log_debug "Waiting for device at $DRIVER_PATH/$DEVICE_ID"
     while [ ! -e "$DRIVER_PATH/$DEVICE_ID" ] && [ $count -lt $max_wait ]; do
+        log_debug "Device not ready, waiting... (${count}/${max_wait}s)"
         sleep 1
         ((count++))
     done
 
     if [ ! -e "$DRIVER_PATH/$DEVICE_ID" ]; then
         log "ERROR: WM8960 device not found after ${max_wait}s"
+        log "Check that the WM8960 is connected to I2C bus $I2C_BUS at address $WM8960_ADDR"
         exit 1
     fi
+    log_debug "Device found after ${count}s"
 }
 
 configure_pll() {
@@ -109,6 +124,7 @@ configure_pll() {
     log "Rebinding driver..."
     echo "$DEVICE_ID" > "$DRIVER_PATH/bind" || { log "ERROR: Failed to rebind driver"; exit 1; }
     sleep 1
+    log_debug "Driver rebound successfully"
 
     log "PLL configuration complete!"
 }
@@ -236,6 +252,10 @@ configure_mixer() {
     else
         log "Detected WM8960 card: $CARD_NUM"
     fi
+
+    log_debug "Card number: $CARD_NUM"
+    log_debug "RESET_DEFAULTS=$RESET_DEFAULTS"
+    log_debug "State file check: $([ -f /var/lib/alsa/asound.state ] && echo 'exists' || echo 'missing')"
 
     # Check for --reset-defaults flag
     if [ "$RESET_DEFAULTS" = true ]; then

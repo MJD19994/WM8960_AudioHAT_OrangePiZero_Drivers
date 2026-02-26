@@ -14,6 +14,21 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
+VERBOSE=false
+for arg in "$@"; do
+    case "$arg" in
+        --verbose|-v) VERBOSE=true ;;
+        --help|-h)
+            echo "Usage: $(basename "$0") [OPTIONS]"
+            echo ""
+            echo "Options:"
+            echo "  --verbose, -v  Show detailed step-by-step output for troubleshooting"
+            echo "  --help, -h     Show this help message"
+            exit 0
+            ;;
+    esac
+done
+
 log_info() {
     echo -e "${GREEN}[INFO]${NC} $1"
 }
@@ -24,6 +39,12 @@ log_warn() {
 
 log_error() {
     echo -e "${RED}[ERROR]${NC} $1"
+}
+
+log_debug() {
+    if [ "$VERBOSE" = true ]; then
+        echo -e "${YELLOW}[DEBUG]${NC} $1"
+    fi
 }
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -94,6 +115,10 @@ patch_dtb() {
     # Resolve symlink to get the real file
     REAL_DTB=$(readlink -f "$BASE_DTB")
     DTB_BASENAME=$(basename "$BASE_DTB" .dtb)
+    log_debug "BASE_DTB=$BASE_DTB"
+    log_debug "REAL_DTB=$REAL_DTB"
+    log_debug "DTB_BASENAME=$DTB_BASENAME"
+    log_debug "Is symlink: $([ -L "$BASE_DTB" ] && echo yes || echo no)"
 
     # Check if WM8960 is already patched
     if fdtget "$REAL_DTB" /soc/i2c@5002400/wm8960@1a compatible >/dev/null 2>&1; then
@@ -107,8 +132,14 @@ patch_dtb() {
         cp "$REAL_DTB" "${BASE_DTB}.backup"
     fi
 
-    # Use the original (unpatched) DTB as input — always patch from clean state
+    # Validate backup is unpatched — if a previous install left a patched backup,
+    # using it as input would double-patch the device tree
     INPUT_DTB="${BASE_DTB}.backup"
+    if fdtget "$INPUT_DTB" /soc/i2c@5002400/wm8960@1a compatible >/dev/null 2>&1; then
+        log_error "DTB backup is already patched — cannot determine clean base DTB"
+        log_error "Restore an original DTB from your OS image and try again"
+        exit 1
+    fi
 
     # Compile the WM8960 overlay from source
     DTS_SOURCE="$SCRIPT_DIR/overlays-orangepi/sun50i-h618-wm8960-working.dts"
@@ -120,6 +151,8 @@ patch_dtb() {
     WORK_DIR=$(mktemp -d)
     trap "rm -rf '$WORK_DIR'" EXIT
 
+    log_debug "Overlay source: $DTS_SOURCE"
+    log_debug "Work directory: $WORK_DIR"
     log_info "Compiling WM8960 overlay..."
     dtc -@ -I dts -O dtb -o "$WORK_DIR/wm8960.dtbo" "$DTS_SOURCE" || {
         log_error "Failed to compile WM8960 overlay"
@@ -129,6 +162,8 @@ patch_dtb() {
     # Apply overlay to base DTB using fdtoverlay
     PATCHED_DTB="$DTB_DIR/${DTB_BASENAME}-wm8960.dtb"
 
+    log_debug "Input DTB: $INPUT_DTB"
+    log_debug "Output DTB: $PATCHED_DTB"
     log_info "Applying WM8960 overlay to device tree..."
     fdtoverlay -i "$INPUT_DTB" -o "$PATCHED_DTB" "$WORK_DIR/wm8960.dtbo" || {
         log_error "Failed to apply overlay to device tree"
@@ -187,11 +222,6 @@ install_alsa_config() {
         cp "$SCRIPT_DIR/configs/asound.conf" /etc/asound.conf || log_warn "Failed to install asound.conf"
     fi
 
-    # Install mixer state
-    if [ -f "$SCRIPT_DIR/configs/wm8960.state" ]; then
-        cp "$SCRIPT_DIR/configs/wm8960.state" /etc/ || log_warn "Failed to install mixer state"
-    fi
-    
     log_info "ALSA configuration installed"
 }
 

@@ -316,7 +316,40 @@ arecord -r 48000 -c 2 -f S16_LE -t wav -d 5 recording.wav
 aplay -D plughw:ahub0wm8960,0 recording.wav
 ```
 
-**Note:** Use 48kHz sample rate for best speaker playback compatibility. Lower sample rates (16kHz, 8kHz) work for headphones but may not play through the speaker.
+### Sample Rates & Voice Assistant Usage
+
+The WM8960 hardware runs natively at **48kHz**. Other sample rates (16kHz, 8kHz, 44.1kHz, etc.) are transparently resampled by ALSA in software when using the `default` audio device.
+
+**Important:** Always use the `default` ALSA device — never open `hw:3,0` directly at non-48kHz rates, as this bypasses resampling and produces garbled audio or can lock up the codec until reboot.
+
+```bash
+# Playback at any sample rate (ALSA resamples to 48kHz automatically)
+aplay -D default my_audio.wav
+
+# Recording at 16kHz for voice/STT pipelines (ALSA resamples from 48kHz)
+arecord -D default -r 16000 -c 1 -f S16_LE -d 5 voice_recording.wav
+
+# Recording at 48kHz (native, no resampling)
+arecord -D default -r 48000 -c 2 -f S16_LE -d 5 recording.wav
+```
+
+**For voice assistant and speech-to-text pipelines** (Google STT, OpenAI Whisper, Home Assistant, etc.): Most STT engines expect 16kHz mono audio. Simply configure your application to use the `default` ALSA device — the dmix/dsnoop layer handles the 48kHz↔16kHz conversion automatically. Do not specify a hardware device like `hw:3,0` or `plughw:3,0` directly.
+
+Example with Python `sounddevice`:
+```python
+import sounddevice as sd
+# Record 5 seconds at 16kHz mono — ALSA handles the resampling
+audio = sd.rec(int(5 * 16000), samplerate=16000, channels=1, dtype='int16')
+sd.wait()
+```
+
+| Rate | Playback (`default`) | Recording (`default`) | Direct (`hw:3,0`) |
+|------|---------------------|----------------------|-------------------|
+| 48000 Hz | Native | Native | Works |
+| 44100 Hz | Resampled | Resampled | Garbled |
+| 32000 Hz | Resampled | Resampled | Garbled |
+| 16000 Hz | Resampled | Resampled | Garbled |
+| 8000 Hz | Resampled | Resampled | Garbled |
 
 ### Service Management
 

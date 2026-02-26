@@ -31,6 +31,10 @@ ERRORS=0
 
 if [ "$1" = "--diagnostics-only" ] || [ "$1" = "-d" ]; then
     DIAG_ONLY=true
+elif [ ! -t 0 ]; then
+    # No TTY (piped, cron, SSH without pty) — interactive read -p would hang
+    DIAG_ONLY=true
+    warn "No interactive terminal detected — running diagnostics only"
 fi
 
 # --- Diagnostics ---

@@ -3,3 +3,4 @@
 
 # Local Claude Code settings (may contain SSH/shell permissions)
 .claude/settings.local.json
+.ROADMAP.md
