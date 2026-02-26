@@ -40,7 +40,7 @@ DRIVER_PATH="/sys/bus/i2c/drivers/wm8960"
 # Auto-detect I2C bus from sysfs (bus number varies: 2 on Orange Pi OS, 3 on Armbian)
 if [ -z "$I2C_BUS" ]; then
     I2C_BUS=$(find /sys/bus/i2c/devices/ -maxdepth 1 -name '*-001a' 2>/dev/null \
-              | head -1 | grep -oP '\d+(?=-001a)' || true)
+              | head -1 | sed -n 's|.*/\([0-9]*\)-001a$|\1|p' || true)
     if [ -z "$I2C_BUS" ]; then
         I2C_BUS=2  # fallback for Orange Pi OS default
     fi

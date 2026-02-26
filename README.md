@@ -13,7 +13,7 @@ Complete audio support for WM8960-based audio HATs (including ReSpeaker 2-Mic HA
 - ✅ Complete mixer configuration (all WM8960 controls set to known defaults)
 - ✅ Multi-application audio support (dmix/dsnoop)
 - ✅ Hardware ALC, Noise Gate, and 3D Enhancement controls exposed
-- ✅ Works with Orange Pi OS (Bookworm, kernel 6.1.31) or Armbian (Trixie, Kernel 6.12.74)
+- ✅ Works with Orange Pi OS (Bookworm, kernel 6.1.31) or Armbian (Trixie, kernel 6.12.74)
 
 ## Hardware Compatibility
 
@@ -39,6 +39,7 @@ Complete audio support for WM8960-based audio HATs (including ReSpeaker 2-Mic HA
 
 ```bash
 sudo apt update && sudo apt upgrade -y
+sudo apt install -y git    # Armbian may not include git by default
 ```
 
 ### Quick Setup (Recommended)

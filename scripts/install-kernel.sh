@@ -69,7 +69,9 @@ tar -xzf "$KERNEL_PKG" -C "$TMPDIR"
 PKG_DIR=$(find "$TMPDIR" -maxdepth 1 -type d -name "kernel-package" | head -1)
 if [ -z "$PKG_DIR" ]; then
     PKG_DIR=$(find "$TMPDIR" -maxdepth 2 -type d -name "modules" | head -1)
-    PKG_DIR=$(dirname "$PKG_DIR" 2>/dev/null)
+    if [ -n "$PKG_DIR" ]; then
+        PKG_DIR=$(dirname "$PKG_DIR")
+    fi
 fi
 
 if [ -z "$PKG_DIR" ] || [ ! -d "$PKG_DIR" ]; then
@@ -110,6 +112,11 @@ if [ -d "$PKG_DIR/modules" ]; then
         cp -a "$PKG_DIR/modules" "/lib/modules/${PKG_VERSION}"
     else
         # Flat layout (legacy) — create dir and copy
+        if [ -d "/lib/modules/${PKG_VERSION}" ]; then
+            BACKUP_DIR="/lib/modules/${PKG_VERSION}.backup.$(date +%Y%m%d%H%M%S)"
+            log_info "Backing up existing modules to ${BACKUP_DIR}..."
+            mv "/lib/modules/${PKG_VERSION}" "$BACKUP_DIR"
+        fi
         mkdir -p "/lib/modules/${PKG_VERSION}/kernel"
         cp -r "$PKG_DIR/modules/"* "/lib/modules/${PKG_VERSION}/"
     fi
@@ -124,7 +131,9 @@ depmod -a "${PKG_VERSION}"
 
 # Generate initramfs for the new kernel
 log_info "Generating initramfs for ${PKG_VERSION}..."
-update-initramfs -c -k "${PKG_VERSION}" 2>/dev/null || true
+if ! update-initramfs -c -k "${PKG_VERSION}" 2>/dev/null; then
+    log_warn "update-initramfs failed or not available — initramfs may not be generated"
+fi
 
 # Convert to u-boot format if mkimage is available
 if command -v mkimage >/dev/null 2>&1; then

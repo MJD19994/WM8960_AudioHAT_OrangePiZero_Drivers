@@ -9,7 +9,7 @@
 # Can be run standalone or called from quick-setup.sh.
 #
 
-set -e
+set -euo pipefail
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -27,8 +27,11 @@ fi
 
 KVER=$(uname -r)
 # Extract major.minor.patch from kernel version (e.g., "6.12.74" from "6.12.74-current-sunxi64")
-KVER_BASE=$(echo "$KVER" | grep -oP '^\d+\.\d+\.\d+')
-KVER_MAJOR_MINOR=$(echo "$KVER_BASE" | grep -oP '^\d+\.\d+')
+KVER_BASE=$(echo "$KVER" | sed -n 's/^\([0-9]*\.[0-9]*\.[0-9]*\).*/\1/p')
+if [ -z "$KVER_BASE" ]; then
+    log_error "Could not parse kernel version from: ${KVER}"
+    exit 1
+fi
 MODULE_DIR="/lib/modules/${KVER}/kernel/sound/soc/codecs"
 HEADERS_DIR="/lib/modules/${KVER}/build"
 
@@ -61,9 +64,10 @@ install_deps() {
         fi
     fi
 
-    command -v make >/dev/null 2>&1 || missing+=("make")
-    command -v gcc >/dev/null 2>&1  || missing+=("gcc")
-    command -v curl >/dev/null 2>&1 || missing+=("curl")
+    command -v make >/dev/null 2>&1    || missing+=("make")
+    command -v gcc >/dev/null 2>&1     || missing+=("gcc")
+    command -v curl >/dev/null 2>&1    || missing+=("curl")
+    command -v i2cset >/dev/null 2>&1  || missing+=("i2c-tools")
 
     if [ ${#missing[@]} -gt 0 ]; then
         log_info "Installing build dependencies: ${missing[*]}"
@@ -135,7 +139,7 @@ build_module() {
 
 # Main
 BUILD_DIR=$(mktemp -d)
-trap "rm -rf '$BUILD_DIR'" EXIT
+trap 'rm -rf "$BUILD_DIR"' EXIT
 
 install_deps
 download_source "$BUILD_DIR"

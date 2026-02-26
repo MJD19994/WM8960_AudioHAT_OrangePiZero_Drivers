@@ -74,7 +74,7 @@ check_prerequisites() {
     
     # Check for required commands
     for cmd in dtc fdtoverlay fdtget i2cset amixer systemctl; do
-        if ! command -v $cmd &> /dev/null; then
+        if ! command -v "$cmd" &> /dev/null; then
             log_error "Required command '$cmd' not found"
             exit 1
         fi

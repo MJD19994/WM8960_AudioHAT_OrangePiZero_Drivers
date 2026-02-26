@@ -62,11 +62,16 @@ fi
 rm -f /etc/wm8960.state
 
 # Remove WM8960 module if it was built from source (Armbian)
-WM8960_MODULE="/lib/modules/$(uname -r)/kernel/sound/soc/codecs/snd-soc-wm8960.ko"
-if [ -f "$WM8960_MODULE" ] && [ -f /etc/armbian-release ]; then
-    log_info "Removing WM8960 kernel module (built from source)..."
-    rm -f "$WM8960_MODULE"
-    depmod -a
+if [ -f /etc/armbian-release ]; then
+    WM8960_MODULE_BASE="/lib/modules/$(uname -r)/kernel/sound/soc/codecs/snd-soc-wm8960"
+    for ext in .ko .ko.xz .ko.zst; do
+        if [ -f "${WM8960_MODULE_BASE}${ext}" ]; then
+            log_info "Removing WM8960 kernel module (built from source)..."
+            rm -f "${WM8960_MODULE_BASE}${ext}"
+            depmod -a
+            break
+        fi
+    done
 fi
 
 # Restore original device tree

@@ -55,7 +55,7 @@ fi
 # Auto-detect I2C bus (bus 2 on Orange Pi OS, bus 3 on Armbian)
 # When the WM8960 driver is bound, i2cdetect shows "UU" instead of "1a"
 I2C_BUS=$(find /sys/bus/i2c/devices/ -maxdepth 1 -name '*-001a' 2>/dev/null \
-          | head -1 | grep -oP '\d+(?=-001a)' || true)
+          | head -1 | sed -n 's|.*/\([0-9]*\)-001a$|\1|p' || true)
 if [ -z "$I2C_BUS" ]; then
     I2C_BUS=2  # fallback
 fi
@@ -137,8 +137,8 @@ if [ -n "$CARD_NUM" ]; then
         ((ERRORS++))
     fi
 
-    HP_VOL=$(amixer -c "$CARD_NUM" sget "Headphone" 2>/dev/null | grep -oP '\[\d+%\]' | head -1)
-    SPK_VOL=$(amixer -c "$CARD_NUM" sget "Speaker" 2>/dev/null | grep -oP '\[\d+%\]' | head -1)
+    HP_VOL=$(amixer -c "$CARD_NUM" sget "Headphone" 2>/dev/null | sed -n 's/.*\(\[[0-9]*%\]\).*/\1/p' | head -1)
+    SPK_VOL=$(amixer -c "$CARD_NUM" sget "Speaker" 2>/dev/null | sed -n 's/.*\(\[[0-9]*%\]\).*/\1/p' | head -1)
     info "Headphone volume: ${HP_VOL:-unknown}  Speaker volume: ${SPK_VOL:-unknown}"
 fi
 
