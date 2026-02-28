@@ -160,12 +160,12 @@ This safely removes the systemd service, restores the original device tree, and 
 
 ## Project Structure
 
-```
+```text
 WM8960_AudioHAT_OrangePiZero_Drivers/
 ├── README.md                           # This file
 ├── LICENSE                             # License
 ├── quick-setup.sh                      # All-in-one setup (kernel/module + driver)
-├── install.sh                          # Driver-only installation (auto-detects OS + SoC)
+├── install.sh                          # Driver-only installation (auto-detects supported OS)
 ├── uninstall.sh                        # Uninstallation script
 ├── overlays-orangepi/                  # Device tree overlay sources
 │   ├── sun50i-h616-wm8960-working.dts # H616 variant

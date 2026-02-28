@@ -184,11 +184,11 @@ echo ""
 
 # Test 1: Sine wave
 echo -e "${BOLD}[Test 1] Playback — 1kHz Sine Wave${NC}"
-echo "  This will play a 1kHz tone for 3 seconds."
+echo "  This will play a 1kHz tone for 5 seconds."
 read -p "  Press Enter to play (or 's' to skip): " -n 1 -r
 echo
 if [[ ! $REPLY =~ ^[Ss]$ ]]; then
-    timeout 3 speaker-test -D "$DEVICE" -c 2 -r "$SAMPLE_RATE" -t sine -f 1000 2>/dev/null || true
+    timeout 5 speaker-test -D "$DEVICE" -c 2 -r "$SAMPLE_RATE" -t sine -f 1000 -p 100000 2>/dev/null || true
     read -p "  Did you hear the tone? (y/n): " -n 1 -r
     echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
@@ -208,7 +208,7 @@ echo "  This will play pink noise alternating between left and right channels."
 read -p "  Press Enter to play (or 's' to skip): " -n 1 -r
 echo
 if [[ ! $REPLY =~ ^[Ss]$ ]]; then
-    timeout 6 speaker-test -D "$DEVICE" -c 2 -r "$SAMPLE_RATE" -t pink -l 1 2>/dev/null || true
+    timeout 8 speaker-test -D "$DEVICE" -c 2 -r "$SAMPLE_RATE" -t pink -p 100000 -l 1 2>/dev/null || true
     read -p "  Did you hear sound in both channels? (y/n): " -n 1 -r
     echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
@@ -260,13 +260,13 @@ fi
 # Test 4: Different frequencies
 echo ""
 echo -e "${BOLD}[Test 4] Playback — Frequency Sweep${NC}"
-echo "  This will play tones at 440Hz, 1kHz, and 4kHz (2 seconds each)."
+echo "  This will play tones at 440Hz, 1kHz, and 4kHz (4 seconds each)."
 read -p "  Press Enter to play (or 's' to skip): " -n 1 -r
 echo
 if [[ ! $REPLY =~ ^[Ss]$ ]]; then
     for freq in 440 1000 4000; do
         echo "  Playing ${freq}Hz..."
-        timeout 2 speaker-test -D "$DEVICE" -c 2 -r "$SAMPLE_RATE" -t sine -f "$freq" 2>/dev/null || true
+        timeout 4 speaker-test -D "$DEVICE" -c 2 -r "$SAMPLE_RATE" -t sine -f "$freq" -p 100000 2>/dev/null || true
     done
     read -p "  Did you hear all three tones (low, mid, high)? (y/n): " -n 1 -r
     echo
@@ -291,6 +291,6 @@ else
     echo "  - Check service: systemctl status wm8960-audio.service"
     echo "  - Check logs:    journalctl -u wm8960-audio.service"
     echo "  - Re-run config: sudo /usr/local/bin/wm8960-pll-config.sh"
-    echo "  - Adjust mixer:  alsamixer -c $CARD_NAME"
+    echo "  - Adjust mixer:  alsamixer -c \"$CARD_NAME\""
 fi
 echo ""

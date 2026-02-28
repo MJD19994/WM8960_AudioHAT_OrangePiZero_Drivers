@@ -49,15 +49,23 @@ log_debug() {
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
-# Detect OS: Armbian vs Orange Pi OS
+# Detect OS: Armbian vs Orange Pi OS (vendor BSP)
+# Orange Pi OS uses a vendor BSP kernel with "sun50iw9" in the version string.
+# Armbian and other distros use mainline-style kernels without this marker.
+# Unknown distros default to the Armbian path (builds module from source)
+# which is safer than the Orange Pi OS path (installs precompiled kernel).
 DISTRO="orangepi"
 detect_os() {
     if [ -f /etc/armbian-release ]; then
         DISTRO="armbian"
         log_info "Detected OS: Armbian"
-    else
+    elif uname -r | grep -q "sun50iw9"; then
         DISTRO="orangepi"
         log_info "Detected OS: Orange Pi OS"
+    else
+        log_warn "Unrecognized OS — this installer is tested on Orange Pi OS and Armbian"
+        log_warn "Proceeding with Armbian-compatible install (builds module from source)"
+        DISTRO="armbian"
     fi
     log_debug "DISTRO=$DISTRO"
 }
@@ -84,7 +92,7 @@ check_prerequisites() {
     KERNEL_VER=$(uname -r)
     log_info "Detected kernel: $KERNEL_VER"
 
-    if [ "$DISTRO" = "orangepi" ] && [[ ! "$KERNEL_VER" =~ "6.1.31" ]]; then
+    if [ "$DISTRO" = "orangepi" ] && [[ ! "$KERNEL_VER" =~ 6\.1\.31 ]]; then
         log_warn "Orange Pi OS installation was tested on kernel 6.1.31"
         log_warn "Your kernel is: $KERNEL_VER"
         if [ -t 0 ]; then

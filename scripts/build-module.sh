@@ -89,12 +89,12 @@ download_source() {
 
     log_info "Downloading WM8960 source (kernel v${KVER_BASE})..."
 
-    curl -sSf "${base_url}/wm8960.c?h=v${KVER_BASE}" -o "${build_dir}/wm8960.c" || {
+    curl -sSf --retry 3 --connect-timeout 10 "${base_url}/wm8960.c?h=v${KVER_BASE}" -o "${build_dir}/wm8960.c" || {
         log_error "Failed to download wm8960.c for kernel v${KVER_BASE}"
         exit 1
     }
 
-    curl -sSf "${base_url}/wm8960.h?h=v${KVER_BASE}" -o "${build_dir}/wm8960.h" || {
+    curl -sSf --retry 3 --connect-timeout 10 "${base_url}/wm8960.h?h=v${KVER_BASE}" -o "${build_dir}/wm8960.h" || {
         log_error "Failed to download wm8960.h for kernel v${KVER_BASE}"
         exit 1
     }

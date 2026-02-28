@@ -61,7 +61,7 @@ DTB_DIR=$(find /boot -type d -name "allwinner" -path "*/dtb*" | head -1)
 echo "DTB directory: $DTB_DIR"
 
 # Find the board DTB
-ls $DTB_DIR/sun50i-h61*-orangepi-zero2w.dtb
+ls "$DTB_DIR"/sun50i-h61*-orangepi-zero2w.dtb
 ```
 
 ### 2. Back Up the Original DTB
