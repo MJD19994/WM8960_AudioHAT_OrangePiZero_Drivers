@@ -32,14 +32,15 @@ log_error() {
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 # Detect OS: Armbian vs Orange Pi OS (vendor BSP)
-# Orange Pi OS uses a vendor BSP kernel with "sun50iw9" in the version string.
+# Orange Pi OS uses a vendor BSP kernel with "sun50iw9" in the version string,
+# or has DTB directories with that marker (persists after our kernel install).
 # Unknown distros default to the Armbian path (builds module from source).
 DISTRO="orangepi"
 detect_os() {
     if [ -f /etc/armbian-release ]; then
         DISTRO="armbian"
         log_info "Detected OS: Armbian"
-    elif uname -r | grep -q "sun50iw9"; then
+    elif uname -r | grep -q "sun50iw9" || ls -d /boot/dtb-*sun50iw9* >/dev/null 2>&1; then
         DISTRO="orangepi"
         log_info "Detected OS: Orange Pi OS"
     else
