@@ -26,6 +26,10 @@ for arg in "$@"; do
             echo "  --help, -h     Show this help message"
             exit 0
             ;;
+        *)
+            echo "Unknown option: $arg (use --help for usage)"
+            exit 1
+            ;;
     esac
 done
 
@@ -161,11 +165,16 @@ patch_dtb() {
         exit 1
     fi
 
-    # Select and compile the WM8960 overlay from source
+    # Select overlay based on SoC (from DTB filename) and distro
+    local soc="h618"
+    case "$DTB_BASENAME" in
+        sun50i-h616-*) soc="h616" ;;
+    esac
+
     if [ "$DISTRO" = "armbian" ]; then
-        DTS_SOURCE="$SCRIPT_DIR/overlays-orangepi/sun50i-h618-wm8960-armbian.dts"
+        DTS_SOURCE="$SCRIPT_DIR/overlays-orangepi/sun50i-${soc}-wm8960-armbian.dts"
     else
-        DTS_SOURCE="$SCRIPT_DIR/overlays-orangepi/sun50i-h618-wm8960-working.dts"
+        DTS_SOURCE="$SCRIPT_DIR/overlays-orangepi/sun50i-${soc}-wm8960-working.dts"
     fi
     if [ ! -f "$DTS_SOURCE" ]; then
         log_error "Overlay source not found: $DTS_SOURCE"

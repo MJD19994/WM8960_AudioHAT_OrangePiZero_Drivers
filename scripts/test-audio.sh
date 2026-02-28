@@ -57,7 +57,12 @@ fi
 I2C_BUS=$(find /sys/bus/i2c/devices/ -maxdepth 1 -name '*-001a' 2>/dev/null \
           | head -1 | sed -n 's|.*/\([0-9]*\)-001a$|\1|p' || true)
 if [ -z "$I2C_BUS" ]; then
-    I2C_BUS=2  # fallback
+    # Fallback: bus 3 on Armbian, bus 2 on Orange Pi OS
+    if [ -f /etc/armbian-release ]; then
+        I2C_BUS=3
+    else
+        I2C_BUS=2
+    fi
 fi
 if command -v i2cdetect >/dev/null 2>&1; then
     I2C_OUTPUT=$(i2cdetect -y "$I2C_BUS" 2>/dev/null || true)
@@ -122,6 +127,7 @@ if [ -n "$CARD_NUM" ]; then
     PCM_RIGHT=$(amixer -c "$CARD_NUM" sget "Right Output Mixer PCM" 2>/dev/null | grep -c "\[on\]")
     CAPTURE=$(amixer -c "$CARD_NUM" sget "Capture" 2>/dev/null | grep -c "\[on\]")
     BOOST_L=$(amixer -c "$CARD_NUM" sget "Left Input Mixer Boost" 2>/dev/null | grep -c "\[on\]")
+    BOOST_R=$(amixer -c "$CARD_NUM" sget "Right Input Mixer Boost" 2>/dev/null | grep -c "\[on\]")
 
     if [ "$PCM_LEFT" -gt 0 ] && [ "$PCM_RIGHT" -gt 0 ]; then
         pass "Playback routing enabled (Output Mixer PCM)"
@@ -130,7 +136,7 @@ if [ -n "$CARD_NUM" ]; then
         ((ERRORS++))
     fi
 
-    if [ "$CAPTURE" -gt 0 ] && [ "$BOOST_L" -gt 0 ]; then
+    if [ "$CAPTURE" -gt 0 ] && [ "$BOOST_L" -gt 0 ] && [ "$BOOST_R" -gt 0 ]; then
         pass "Capture routing enabled (Input Mixer Boost)"
     else
         fail "Capture routing disabled — run: sudo /usr/local/bin/wm8960-pll-config.sh"

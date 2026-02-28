@@ -93,7 +93,8 @@ Common things to experiment with:
 
 ```bash
 # The -@ flag enables phandle references (required for overlays)
-dtc -@ -I dts -O dtb -o /tmp/wm8960.dtbo overlays-orangepi/sun50i-h618-wm8960-working.dts
+# Use the overlay file you selected/edited in Step 3
+dtc -@ -I dts -O dtb -o /tmp/wm8960.dtbo overlays-orangepi/<your-overlay>.dts
 ```
 
 You'll see warnings about missing phandle references — these are normal for overlays and can be ignored.
