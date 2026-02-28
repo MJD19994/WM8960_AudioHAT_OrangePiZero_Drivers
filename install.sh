@@ -177,7 +177,11 @@ patch_dtb() {
         DTS_SOURCE="$SCRIPT_DIR/overlays-orangepi/sun50i-${soc}-wm8960-working.dts"
     fi
     if [ ! -f "$DTS_SOURCE" ]; then
-        log_error "Overlay source not found: $DTS_SOURCE"
+        log_error "No overlay available for ${soc} on ${DISTRO}"
+        log_error "Available overlays:"
+        ls -1 "$SCRIPT_DIR/overlays-orangepi/"*.dts 2>/dev/null | while read -r f; do
+            log_error "  $(basename "$f")"
+        done
         exit 1
     fi
 
