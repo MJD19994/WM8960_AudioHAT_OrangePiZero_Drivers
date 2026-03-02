@@ -31,6 +31,10 @@ ERRORS=0
 
 if [ "$1" = "--diagnostics-only" ] || [ "$1" = "-d" ]; then
     DIAG_ONLY=true
+elif [ ! -t 0 ]; then
+    # No TTY (piped, cron, SSH without pty) — interactive read -p would hang
+    DIAG_ONLY=true
+    warn "No interactive terminal detected — running diagnostics only"
 fi
 
 # --- Diagnostics ---
@@ -48,17 +52,28 @@ else
 fi
 
 # 2. Check I2C device
+# Auto-detect I2C bus (bus 2 on Orange Pi OS, bus 3 on Armbian)
 # When the WM8960 driver is bound, i2cdetect shows "UU" instead of "1a"
+I2C_BUS=$(find /sys/bus/i2c/devices/ -maxdepth 1 -name '*-001a' 2>/dev/null \
+          | head -1 | sed -n 's|.*/\([0-9]*\)-001a$|\1|p' || true)
+if [ -z "$I2C_BUS" ]; then
+    # Fallback: bus 3 on Armbian, bus 2 on Orange Pi OS
+    if [ -f /etc/armbian-release ]; then
+        I2C_BUS=3
+    else
+        I2C_BUS=2
+    fi
+fi
 if command -v i2cdetect >/dev/null 2>&1; then
-    I2C_OUTPUT=$(i2cdetect -y 2 2>/dev/null || true)
+    I2C_OUTPUT=$(timeout 5 i2cdetect -y "$I2C_BUS" 2>/dev/null || true)
     if echo "$I2C_OUTPUT" | grep -qE "\b(1a|UU)\b" 2>/dev/null; then
         if echo "$I2C_OUTPUT" | grep -q "UU" 2>/dev/null; then
-            pass "WM8960 detected on I2C bus 2 at 0x1a (driver bound)"
+            pass "WM8960 detected on I2C bus $I2C_BUS at 0x1a (driver bound)"
         else
-            pass "WM8960 detected on I2C bus 2 at 0x1a"
+            pass "WM8960 detected on I2C bus $I2C_BUS at 0x1a"
         fi
     else
-        fail "WM8960 not detected on I2C bus 2"
+        fail "WM8960 not detected on I2C bus $I2C_BUS"
         ((ERRORS++))
     fi
 else
@@ -112,6 +127,7 @@ if [ -n "$CARD_NUM" ]; then
     PCM_RIGHT=$(amixer -c "$CARD_NUM" sget "Right Output Mixer PCM" 2>/dev/null | grep -c "\[on\]")
     CAPTURE=$(amixer -c "$CARD_NUM" sget "Capture" 2>/dev/null | grep -c "\[on\]")
     BOOST_L=$(amixer -c "$CARD_NUM" sget "Left Input Mixer Boost" 2>/dev/null | grep -c "\[on\]")
+    BOOST_R=$(amixer -c "$CARD_NUM" sget "Right Input Mixer Boost" 2>/dev/null | grep -c "\[on\]")
 
     if [ "$PCM_LEFT" -gt 0 ] && [ "$PCM_RIGHT" -gt 0 ]; then
         pass "Playback routing enabled (Output Mixer PCM)"
@@ -120,15 +136,15 @@ if [ -n "$CARD_NUM" ]; then
         ((ERRORS++))
     fi
 
-    if [ "$CAPTURE" -gt 0 ] && [ "$BOOST_L" -gt 0 ]; then
+    if [ "$CAPTURE" -gt 0 ] && [ "$BOOST_L" -gt 0 ] && [ "$BOOST_R" -gt 0 ]; then
         pass "Capture routing enabled (Input Mixer Boost)"
     else
         fail "Capture routing disabled — run: sudo /usr/local/bin/wm8960-pll-config.sh"
         ((ERRORS++))
     fi
 
-    HP_VOL=$(amixer -c "$CARD_NUM" sget "Headphone" 2>/dev/null | grep -oP '\[\d+%\]' | head -1)
-    SPK_VOL=$(amixer -c "$CARD_NUM" sget "Speaker" 2>/dev/null | grep -oP '\[\d+%\]' | head -1)
+    HP_VOL=$(amixer -c "$CARD_NUM" sget "Headphone" 2>/dev/null | sed -n 's/.*\(\[[0-9]*%\]\).*/\1/p' | head -1)
+    SPK_VOL=$(amixer -c "$CARD_NUM" sget "Speaker" 2>/dev/null | sed -n 's/.*\(\[[0-9]*%\]\).*/\1/p' | head -1)
     info "Headphone volume: ${HP_VOL:-unknown}  Speaker volume: ${SPK_VOL:-unknown}"
 fi
 
@@ -174,11 +190,11 @@ echo ""
 
 # Test 1: Sine wave
 echo -e "${BOLD}[Test 1] Playback — 1kHz Sine Wave${NC}"
-echo "  This will play a 1kHz tone for 3 seconds."
+echo "  This will play a 1kHz tone for 5 seconds."
 read -p "  Press Enter to play (or 's' to skip): " -n 1 -r
 echo
 if [[ ! $REPLY =~ ^[Ss]$ ]]; then
-    timeout 3 speaker-test -D "$DEVICE" -c 2 -r "$SAMPLE_RATE" -t sine -f 1000 2>/dev/null || true
+    timeout 5 speaker-test -D "$DEVICE" -c 2 -r "$SAMPLE_RATE" -t sine -f 1000 -p 100000 2>/dev/null || true
     read -p "  Did you hear the tone? (y/n): " -n 1 -r
     echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
@@ -198,7 +214,7 @@ echo "  This will play pink noise alternating between left and right channels."
 read -p "  Press Enter to play (or 's' to skip): " -n 1 -r
 echo
 if [[ ! $REPLY =~ ^[Ss]$ ]]; then
-    timeout 6 speaker-test -D "$DEVICE" -c 2 -r "$SAMPLE_RATE" -t pink -l 1 2>/dev/null || true
+    timeout 8 speaker-test -D "$DEVICE" -c 2 -r "$SAMPLE_RATE" -t pink -p 100000 -l 1 2>/dev/null || true
     read -p "  Did you hear sound in both channels? (y/n): " -n 1 -r
     echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
@@ -250,13 +266,13 @@ fi
 # Test 4: Different frequencies
 echo ""
 echo -e "${BOLD}[Test 4] Playback — Frequency Sweep${NC}"
-echo "  This will play tones at 440Hz, 1kHz, and 4kHz (2 seconds each)."
+echo "  This will play tones at 440Hz, 1kHz, and 4kHz (4 seconds each)."
 read -p "  Press Enter to play (or 's' to skip): " -n 1 -r
 echo
 if [[ ! $REPLY =~ ^[Ss]$ ]]; then
     for freq in 440 1000 4000; do
         echo "  Playing ${freq}Hz..."
-        timeout 2 speaker-test -D "$DEVICE" -c 2 -r "$SAMPLE_RATE" -t sine -f "$freq" 2>/dev/null || true
+        timeout 4 speaker-test -D "$DEVICE" -c 2 -r "$SAMPLE_RATE" -t sine -f "$freq" -p 100000 2>/dev/null || true
     done
     read -p "  Did you hear all three tones (low, mid, high)? (y/n): " -n 1 -r
     echo
@@ -281,6 +297,6 @@ else
     echo "  - Check service: systemctl status wm8960-audio.service"
     echo "  - Check logs:    journalctl -u wm8960-audio.service"
     echo "  - Re-run config: sudo /usr/local/bin/wm8960-pll-config.sh"
-    echo "  - Adjust mixer:  alsamixer -c $CARD_NAME"
+    echo "  - Adjust mixer:  alsamixer -c \"$CARD_NAME\""
 fi
 echo ""

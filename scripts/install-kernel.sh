@@ -52,7 +52,15 @@ log_info "Found kernel package: $(basename "$KERNEL_PKG")"
 
 # Extract to temp directory
 TMPDIR=$(mktemp -d)
-trap "rm -rf '$TMPDIR'" EXIT
+BACKUP_DIR=""
+cleanup() {
+    rm -rf "$TMPDIR"
+    if [ -n "$BACKUP_DIR" ] && [ -d "$BACKUP_DIR" ]; then
+        log_warn "Module backup preserved at: $BACKUP_DIR"
+        log_warn "To rollback: rm -rf /lib/modules/${PKG_VERSION:-unknown} && mv $BACKUP_DIR /lib/modules/${PKG_VERSION:-unknown}"
+    fi
+}
+trap cleanup EXIT
 
 log_info "Extracting kernel package..."
 tar -xzf "$KERNEL_PKG" -C "$TMPDIR"
@@ -61,7 +69,9 @@ tar -xzf "$KERNEL_PKG" -C "$TMPDIR"
 PKG_DIR=$(find "$TMPDIR" -maxdepth 1 -type d -name "kernel-package" | head -1)
 if [ -z "$PKG_DIR" ]; then
     PKG_DIR=$(find "$TMPDIR" -maxdepth 2 -type d -name "modules" | head -1)
-    PKG_DIR=$(dirname "$PKG_DIR" 2>/dev/null)
+    if [ -n "$PKG_DIR" ]; then
+        PKG_DIR=$(dirname "$PKG_DIR")
+    fi
 fi
 
 if [ -z "$PKG_DIR" ] || [ ! -d "$PKG_DIR" ]; then
@@ -94,10 +104,19 @@ if [ -d "$PKG_DIR/modules" ]; then
     # or as a flat modules/ directory
     if [ -d "$PKG_DIR/modules/kernel" ]; then
         # Full module tree — install directly
-        rm -rf "/lib/modules/${PKG_VERSION}"
+        if [ -d "/lib/modules/${PKG_VERSION}" ]; then
+            BACKUP_DIR="/lib/modules/${PKG_VERSION}.backup.$(date +%Y%m%d%H%M%S)"
+            log_info "Backing up existing modules to ${BACKUP_DIR}..."
+            mv "/lib/modules/${PKG_VERSION}" "$BACKUP_DIR"
+        fi
         cp -a "$PKG_DIR/modules" "/lib/modules/${PKG_VERSION}"
     else
         # Flat layout (legacy) — create dir and copy
+        if [ -d "/lib/modules/${PKG_VERSION}" ]; then
+            BACKUP_DIR="/lib/modules/${PKG_VERSION}.backup.$(date +%Y%m%d%H%M%S)"
+            log_info "Backing up existing modules to ${BACKUP_DIR}..."
+            mv "/lib/modules/${PKG_VERSION}" "$BACKUP_DIR"
+        fi
         mkdir -p "/lib/modules/${PKG_VERSION}/kernel"
         cp -r "$PKG_DIR/modules/"* "/lib/modules/${PKG_VERSION}/"
     fi
@@ -112,7 +131,9 @@ depmod -a "${PKG_VERSION}"
 
 # Generate initramfs for the new kernel
 log_info "Generating initramfs for ${PKG_VERSION}..."
-update-initramfs -c -k "${PKG_VERSION}" 2>/dev/null || true
+if ! update-initramfs -c -k "${PKG_VERSION}" 2>/dev/null; then
+    log_warn "update-initramfs failed or not available — initramfs may not be generated"
+fi
 
 # Convert to u-boot format if mkimage is available
 if command -v mkimage >/dev/null 2>&1; then
@@ -136,6 +157,13 @@ fi
 # Explicitly do NOT touch /boot/dtb symlink — it must stay pointing to the
 # original device trees which include WiFi, Bluetooth, and other hardware support
 log_info "DTB symlink unchanged: $(readlink /boot/dtb 2>/dev/null || echo 'not found')"
+
+# Clean up module backup on success
+if [ -n "${BACKUP_DIR:-}" ] && [ -d "$BACKUP_DIR" ]; then
+    log_info "Removing module backup (install succeeded)..."
+    rm -rf "$BACKUP_DIR"
+    BACKUP_DIR=""
+fi
 
 log_info "Kernel installation complete!"
 log_info "A reboot is required to use the new kernel"
