@@ -65,7 +65,7 @@ if [ -z "$I2C_BUS" ]; then
     fi
 fi
 if command -v i2cdetect >/dev/null 2>&1; then
-    I2C_OUTPUT=$(i2cdetect -y "$I2C_BUS" 2>/dev/null || true)
+    I2C_OUTPUT=$(timeout 5 i2cdetect -y "$I2C_BUS" 2>/dev/null || true)
     if echo "$I2C_OUTPUT" | grep -qE "\b(1a|UU)\b" 2>/dev/null; then
         if echo "$I2C_OUTPUT" | grep -q "UU" 2>/dev/null; then
             pass "WM8960 detected on I2C bus $I2C_BUS at 0x1a (driver bound)"
