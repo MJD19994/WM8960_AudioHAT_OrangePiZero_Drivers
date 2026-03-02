@@ -307,7 +307,7 @@ install_pipewire_config() {
 install_pulseaudio_config() {
     log_info "Installing PulseAudio configuration..."
 
-    # Daemon config drop-in (locks sample rate to 48kHz)
+    # Daemon config drop-in (locks sample rate to 48kHz, flat volumes)
     mkdir -p /etc/pulse/daemon.conf.d
     if [ ! -f /etc/pulse/daemon.conf.d/10-wm8960.conf ]; then
         cp "$SCRIPT_DIR/configs/pulse-daemon.conf" /etc/pulse/daemon.conf.d/10-wm8960.conf
@@ -315,6 +315,17 @@ install_pulseaudio_config() {
     else
         log_info "PulseAudio daemon config already exists — skipping"
     fi
+
+    # udev rule assigns our custom PA profile set for the WM8960 card
+    cp "$SCRIPT_DIR/configs/91-wm8960-pulseaudio.rules" /etc/udev/rules.d/
+    log_info "Installed PulseAudio udev rule"
+
+    # Custom profile set and path files — maps WM8960's mixer elements
+    # so PA provides hardware volume control without resetting mixer levels
+    cp "$SCRIPT_DIR/configs/wm8960-audiohat.conf" /usr/share/pulseaudio/alsa-mixer/profile-sets/
+    cp "$SCRIPT_DIR/configs/wm8960-output.conf" /usr/share/pulseaudio/alsa-mixer/paths/
+    cp "$SCRIPT_DIR/configs/wm8960-input.conf" /usr/share/pulseaudio/alsa-mixer/paths/
+    log_info "Installed PulseAudio profile set and mixer paths"
 }
 
 record_installed_stack() {

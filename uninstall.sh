@@ -113,7 +113,11 @@ if [ "$INSTALLED_STACK" = "pipewire" ]; then
 elif [ "$INSTALLED_STACK" = "pulseaudio" ]; then
     log_info "Removing PulseAudio configuration..."
     rm -f /etc/pulse/daemon.conf.d/10-wm8960.conf
-    log_debug "Removed PulseAudio daemon config"
+    rm -f /etc/udev/rules.d/91-wm8960-pulseaudio.rules
+    rm -f /usr/share/pulseaudio/alsa-mixer/profile-sets/wm8960-audiohat.conf
+    rm -f /usr/share/pulseaudio/alsa-mixer/paths/wm8960-output.conf
+    rm -f /usr/share/pulseaudio/alsa-mixer/paths/wm8960-input.conf
+    log_debug "Removed PulseAudio daemon config, udev rule, profile set, and mixer paths"
 else
     log_debug "No audio server configs to remove (bare ALSA)"
 fi
