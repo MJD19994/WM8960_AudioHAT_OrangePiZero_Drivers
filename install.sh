@@ -264,11 +264,12 @@ install_alsa_config() {
 
 # Detect audio server: PipeWire, PulseAudio, or bare ALSA
 # Uses package detection (works headless, no running server needed).
-# Checks pipewire before pulseaudio because PipeWire can install
-# pulseaudio as a transitional dependency.
+# Checks pipewire-pulse (not just pipewire) because some distros install
+# the pipewire library as a dependency without using it as the audio server.
+# pipewire-pulse means PipeWire is actively replacing PulseAudio.
 AUDIO_STACK="alsa"
 detect_audio_stack() {
-    if dpkg-query -W -f='${Status}' pipewire 2>/dev/null | grep -q "install ok installed"; then
+    if dpkg-query -W -f='${Status}' pipewire-pulse 2>/dev/null | grep -q "install ok installed"; then
         AUDIO_STACK="pipewire"
         log_info "Detected audio stack: PipeWire"
     elif dpkg-query -W -f='${Status}' pulseaudio 2>/dev/null | grep -q "install ok installed"; then
