@@ -159,6 +159,35 @@ else
     pass "No WM8960 errors in dmesg"
 fi
 
+# 9. Check audio server
+if command -v pactl >/dev/null 2>&1 && pactl info >/dev/null 2>&1; then
+    if pactl info 2>/dev/null | grep -q "PulseAudio (on PipeWire"; then
+        info "Audio server: PipeWire"
+        DEFAULT_SINK=$(pactl info 2>/dev/null | sed -n 's/^Default Sink: //p')
+        DEFAULT_SRC=$(pactl info 2>/dev/null | sed -n 's/^Default Source: //p')
+        if echo "$DEFAULT_SINK" | grep -qi "wm8960\|ahub0"; then
+            pass "WM8960 is the default output: $DEFAULT_SINK"
+        else
+            warn "Default output is not WM8960: ${DEFAULT_SINK:-unknown}"
+        fi
+        if echo "$DEFAULT_SRC" | grep -qi "wm8960\|ahub0"; then
+            pass "WM8960 is the default input: $DEFAULT_SRC"
+        else
+            warn "Default input is not WM8960: ${DEFAULT_SRC:-unknown}"
+        fi
+    else
+        info "Audio server: PulseAudio"
+        DEFAULT_SINK=$(pactl info 2>/dev/null | sed -n 's/^Default Sink: //p')
+        if echo "$DEFAULT_SINK" | grep -qi "wm8960\|ahub0"; then
+            pass "WM8960 is the default output: $DEFAULT_SINK"
+        else
+            warn "Default output is not WM8960: ${DEFAULT_SINK:-unknown}"
+        fi
+    fi
+else
+    info "Audio server: none (bare ALSA)"
+fi
+
 # Summary
 header "Diagnostics Summary"
 if [ "$ERRORS" -eq 0 ]; then

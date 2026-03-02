@@ -253,13 +253,72 @@ install_service() {
 
 install_alsa_config() {
     log_info "Installing ALSA configuration..."
-    
+
     # Install ALSA config
     if [ -f "$SCRIPT_DIR/configs/asound.conf" ]; then
         cp "$SCRIPT_DIR/configs/asound.conf" /etc/asound.conf || log_warn "Failed to install asound.conf"
     fi
 
     log_info "ALSA configuration installed"
+}
+
+# Detect audio server: PipeWire, PulseAudio, or bare ALSA
+# Uses package detection (works headless, no running server needed).
+# Checks pipewire before pulseaudio because PipeWire can install
+# pulseaudio as a transitional dependency.
+AUDIO_STACK="alsa"
+detect_audio_stack() {
+    if dpkg-query -W -f='${Status}' pipewire 2>/dev/null | grep -q "install ok installed"; then
+        AUDIO_STACK="pipewire"
+        log_info "Detected audio stack: PipeWire"
+    elif dpkg-query -W -f='${Status}' pulseaudio 2>/dev/null | grep -q "install ok installed"; then
+        AUDIO_STACK="pulseaudio"
+        log_info "Detected audio stack: PulseAudio"
+    else
+        AUDIO_STACK="alsa"
+        log_info "Detected audio stack: bare ALSA"
+    fi
+    log_debug "AUDIO_STACK=$AUDIO_STACK"
+}
+
+install_pipewire_config() {
+    log_info "Installing PipeWire/WirePlumber configuration..."
+
+    # PipeWire rate lock
+    mkdir -p /etc/pipewire/pipewire.conf.d
+    if [ ! -f /etc/pipewire/pipewire.conf.d/10-wm8960-rate.conf ]; then
+        cp "$SCRIPT_DIR/configs/pipewire-rate.conf" /etc/pipewire/pipewire.conf.d/10-wm8960-rate.conf
+        log_info "Installed PipeWire rate config"
+    else
+        log_info "PipeWire rate config already exists — skipping"
+    fi
+
+    # WirePlumber priority rules
+    mkdir -p /etc/wireplumber/wireplumber.conf.d
+    if [ ! -f /etc/wireplumber/wireplumber.conf.d/51-wm8960.conf ]; then
+        cp "$SCRIPT_DIR/configs/wireplumber-wm8960.conf" /etc/wireplumber/wireplumber.conf.d/51-wm8960.conf
+        log_info "Installed WirePlumber priority rules"
+    else
+        log_info "WirePlumber config already exists — skipping"
+    fi
+}
+
+install_pulseaudio_config() {
+    log_info "Installing PulseAudio configuration..."
+
+    # Daemon config drop-in (locks sample rate to 48kHz)
+    mkdir -p /etc/pulse/daemon.conf.d
+    if [ ! -f /etc/pulse/daemon.conf.d/10-wm8960.conf ]; then
+        cp "$SCRIPT_DIR/configs/pulse-daemon.conf" /etc/pulse/daemon.conf.d/10-wm8960.conf
+        log_info "Installed PulseAudio daemon config"
+    else
+        log_info "PulseAudio daemon config already exists — skipping"
+    fi
+}
+
+record_installed_stack() {
+    echo "AUDIO_STACK=$AUDIO_STACK" > /etc/wm8960-audio-stack.conf
+    log_debug "Recorded AUDIO_STACK=$AUDIO_STACK to /etc/wm8960-audio-stack.conf"
 }
 
 print_next_steps() {
@@ -269,10 +328,23 @@ print_next_steps() {
     echo "Next steps:"
     echo "1. Reboot: sudo reboot"
     echo "2. After reboot, test audio with:"
-    echo "   speaker-test -D default -c 2 -r 48000 -t sine -f 1000 -l 1"
+    case "$AUDIO_STACK" in
+        pipewire)
+            echo "   wpctl status                    # verify WM8960 is default"
+            echo "   speaker-test -c 2 -r 48000 -t sine -f 1000 -l 1"
+            ;;
+        pulseaudio)
+            echo "   pactl info | grep 'Default Sink'  # verify WM8960 is default"
+            echo "   speaker-test -c 2 -r 48000 -t sine -f 1000 -l 1"
+            ;;
+        *)
+            echo "   speaker-test -D default -c 2 -r 48000 -t sine -f 1000 -l 1"
+            ;;
+    esac
     echo ""
     echo "Notes:"
     echo "- Sound card name: ahub0wm8960"
+    echo "- Audio stack: $AUDIO_STACK"
     echo "- Both headphones and speaker will work simultaneously"
     echo "- Service status: systemctl status wm8960-audio.service"
     echo "- Logs: journalctl -u wm8960-audio.service"
@@ -289,6 +361,13 @@ check_prerequisites
 patch_dtb
 install_service
 install_alsa_config
+detect_audio_stack
+case "$AUDIO_STACK" in
+    pipewire)   install_pipewire_config ;;
+    pulseaudio) install_pulseaudio_config ;;
+    alsa)       log_debug "Bare ALSA — no audio server config needed" ;;
+esac
+record_installed_stack
 print_next_steps
 
 exit 0

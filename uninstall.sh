@@ -96,6 +96,30 @@ fi
 
 rm -f /etc/wm8960.state
 
+# Remove audio server configs based on install manifest
+INSTALLED_STACK="alsa"
+if [ -f /etc/wm8960-audio-stack.conf ]; then
+    # shellcheck source=/dev/null
+    . /etc/wm8960-audio-stack.conf
+    INSTALLED_STACK="${AUDIO_STACK:-alsa}"
+    log_debug "Install manifest: AUDIO_STACK=$INSTALLED_STACK"
+fi
+
+if [ "$INSTALLED_STACK" = "pipewire" ]; then
+    log_info "Removing PipeWire/WirePlumber configuration..."
+    rm -f /etc/pipewire/pipewire.conf.d/10-wm8960-rate.conf
+    rm -f /etc/wireplumber/wireplumber.conf.d/51-wm8960.conf
+    log_debug "Removed PipeWire rate config and WirePlumber priority rules"
+elif [ "$INSTALLED_STACK" = "pulseaudio" ]; then
+    log_info "Removing PulseAudio configuration..."
+    rm -f /etc/pulse/daemon.conf.d/10-wm8960.conf
+    log_debug "Removed PulseAudio daemon config"
+else
+    log_debug "No audio server configs to remove (bare ALSA)"
+fi
+
+rm -f /etc/wm8960-audio-stack.conf
+
 # Remove WM8960 module if it was built from source (Armbian)
 if [ -f /etc/armbian-release ]; then
     log_debug "Armbian detected — checking for built-from-source WM8960 module"
