@@ -102,11 +102,13 @@ else
     ((ERRORS++))
 fi
 
-# 5. Check PLL config script
-if [ -x /usr/local/bin/wm8960-pll-config.sh ]; then
-    pass "PLL configuration script installed"
+# 5. Check mixer config script
+if [ -x /usr/local/bin/wm8960-mixer-config.sh ]; then
+    pass "Mixer configuration script installed"
+elif [ -x /usr/local/bin/wm8960-pll-config.sh ]; then
+    pass "Legacy PLL configuration script installed"
 else
-    fail "PLL configuration script not found at /usr/local/bin/wm8960-pll-config.sh"
+    fail "Mixer configuration script not found at /usr/local/bin/wm8960-mixer-config.sh"
     ((ERRORS++))
 fi
 
@@ -132,14 +134,14 @@ if [ -n "$CARD_NUM" ]; then
     if [ "$PCM_LEFT" -gt 0 ] && [ "$PCM_RIGHT" -gt 0 ]; then
         pass "Playback routing enabled (Output Mixer PCM)"
     else
-        fail "Playback routing disabled — run: sudo /usr/local/bin/wm8960-pll-config.sh"
+        fail "Playback routing disabled — run: sudo /usr/local/bin/wm8960-mixer-config.sh"
         ((ERRORS++))
     fi
 
     if [ "$CAPTURE" -gt 0 ] && [ "$BOOST_L" -gt 0 ] && [ "$BOOST_R" -gt 0 ]; then
         pass "Capture routing enabled (Input Mixer Boost)"
     else
-        fail "Capture routing disabled — run: sudo /usr/local/bin/wm8960-pll-config.sh"
+        fail "Capture routing disabled — run: sudo /usr/local/bin/wm8960-mixer-config.sh"
         ((ERRORS++))
     fi
 
@@ -325,7 +327,7 @@ else
     echo "Troubleshooting:"
     echo "  - Check service: systemctl status wm8960-audio.service"
     echo "  - Check logs:    journalctl -u wm8960-audio.service"
-    echo "  - Re-run config: sudo /usr/local/bin/wm8960-pll-config.sh"
+    echo "  - Re-run config: sudo /usr/local/bin/wm8960-mixer-config.sh"
     echo "  - Adjust mixer:  alsamixer -c \"$CARD_NAME\""
 fi
 echo ""

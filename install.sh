@@ -86,7 +86,7 @@ check_prerequisites() {
     log_info "Checking prerequisites..."
     
     # Check for required commands
-    for cmd in dtc fdtoverlay fdtget i2cset amixer systemctl; do
+    for cmd in dtc fdtoverlay fdtget amixer systemctl; do
         if ! command -v "$cmd" &> /dev/null; then
             log_error "Required command '$cmd' not found"
             exit 1
@@ -110,6 +110,87 @@ check_prerequisites() {
             log_warn "Non-interactive mode, continuing anyway..."
         fi
     fi
+}
+
+install_dkms_module() {
+    # Skip if module already available (built-in or previously installed via DKMS)
+    if modinfo snd_soc_wm8960 >/dev/null 2>&1; then
+        log_info "WM8960 kernel module already available — skipping DKMS"
+        return 0
+    fi
+
+    log_info "Installing WM8960 kernel module via DKMS..."
+
+    # Install DKMS if not present
+    if ! command -v dkms &>/dev/null; then
+        log_info "Installing dkms package..."
+        apt-get update -qq
+        apt-get install -y -qq dkms
+    fi
+
+    # Ensure kernel headers are available
+    local kver
+    kver=$(uname -r)
+    if [ ! -d "/lib/modules/${kver}/build" ]; then
+        if [ "$DISTRO" = "orangepi" ]; then
+            # Orange Pi OS: extract shipped headers tarball
+            local kheaders_tar="$SCRIPT_DIR/dkms/kheaders-6.1.31-sun50iw9.tar.xz"
+            if [ ! -f "$kheaders_tar" ]; then
+                log_error "Kernel headers tarball not found: $kheaders_tar"
+                exit 1
+            fi
+            log_info "Extracting Orange Pi OS kernel headers..."
+            tar -xJf "$kheaders_tar" -C /
+        else
+            # Armbian / other: install from apt
+            log_info "Installing kernel headers from apt..."
+            apt-get update -qq
+            local headers_pkg=""
+            if apt-cache show linux-headers-current-sunxi64 >/dev/null 2>&1; then
+                headers_pkg="linux-headers-current-sunxi64"
+            elif apt-cache show "linux-headers-${kver}" >/dev/null 2>&1; then
+                headers_pkg="linux-headers-${kver}"
+            fi
+            if [ -n "$headers_pkg" ]; then
+                apt-get install -y -qq "$headers_pkg"
+            else
+                log_error "Cannot find kernel headers package for ${kver}"
+                log_error "Install headers manually: apt install linux-headers-..."
+                exit 1
+            fi
+        fi
+    fi
+    log_debug "Kernel headers: /lib/modules/${kver}/build"
+
+    # Install build tools if missing
+    if ! command -v make &>/dev/null || ! command -v gcc &>/dev/null; then
+        log_info "Installing build tools..."
+        apt-get update -qq
+        apt-get install -y -qq make gcc
+    fi
+
+    # Copy DKMS source tree
+    local dkms_src="/usr/src/wm8960-audio-hat-1.0"
+    rm -rf "$dkms_src"
+    mkdir -p "$dkms_src"
+    cp "$SCRIPT_DIR/dkms/wm8960.c" "$dkms_src/"
+    cp "$SCRIPT_DIR/dkms/wm8960.h" "$dkms_src/"
+    cp "$SCRIPT_DIR/dkms/Makefile" "$dkms_src/"
+    cp "$SCRIPT_DIR/dkms/dkms.conf" "$dkms_src/"
+
+    # Remove any previous DKMS registration
+    if dkms status wm8960-audio-hat/1.0 2>/dev/null | grep -q .; then
+        log_debug "Removing previous DKMS registration..."
+        dkms remove wm8960-audio-hat/1.0 --all 2>/dev/null || true
+    fi
+
+    # Add, build, install
+    log_info "Building WM8960 module with DKMS..."
+    dkms add wm8960-audio-hat/1.0 || { log_error "DKMS add failed"; exit 1; }
+    dkms build wm8960-audio-hat/1.0 || { log_error "DKMS build failed"; exit 1; }
+    dkms install wm8960-audio-hat/1.0 || { log_error "DKMS install failed"; exit 1; }
+
+    log_info "WM8960 kernel module installed via DKMS"
 }
 
 patch_dtb() {
@@ -226,14 +307,17 @@ patch_dtb() {
 }
 
 install_service() {
-    log_info "Installing PLL configuration service..."
-    
+    log_info "Installing mixer configuration service..."
+
+    # Remove legacy PLL script if present (from previous installs)
+    rm -f /usr/local/bin/wm8960-pll-config.sh
+
     # Install script
-    cp "$SCRIPT_DIR/service/wm8960-pll-config.sh" /usr/local/bin/ || {
+    cp "$SCRIPT_DIR/service/wm8960-mixer-config.sh" /usr/local/bin/ || {
         log_error "Failed to copy configuration script"
         exit 1
     }
-    chmod +x /usr/local/bin/wm8960-pll-config.sh
+    chmod +x /usr/local/bin/wm8960-mixer-config.sh
     
     # Install service file
     cp "$SCRIPT_DIR/service/wm8960-audio.service" /etc/systemd/system/ || {
@@ -370,6 +454,7 @@ echo ""
 check_root
 detect_os
 check_prerequisites
+install_dkms_module
 patch_dtb
 install_service
 install_alsa_config

@@ -7,6 +7,7 @@
  * Author: Liam Girdwood
  */
 
+#include <linux/version.h>
 #include <linux/module.h>
 #include <linux/moduleparam.h>
 #include <linux/init.h>
@@ -1532,7 +1533,11 @@ static struct i2c_driver wm8960_i2c_driver = {
 		.of_match_table = of_match_ptr(wm8960_of_match),
 		.acpi_match_table = ACPI_PTR(wm8960_acpi_match),
 	},
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 6, 0)
+	.probe = wm8960_i2c_probe,
+#else
 	.probe_new = wm8960_i2c_probe,
+#endif
 	.remove =   wm8960_i2c_remove,
 	.id_table = wm8960_i2c_id,
 };

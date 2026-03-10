@@ -1,13 +1,14 @@
 #!/bin/bash
 #
-# WM8960 Kernel Module Installer
+# DEPRECATED: This script is no longer used. DKMS module building is now
+# handled directly by install.sh. This file is kept for reference only.
+#
+# WM8960 Kernel Module Installer (legacy)
 #
 # Extracts the precompiled kernel package and installs it alongside the
 # existing kernel. Updates boot symlinks to use the new kernel while
 # keeping the original device trees (DTBs) intact — this preserves WiFi,
 # Bluetooth, and other hardware support.
-#
-# Called by quick-setup.sh or can be run standalone.
 #
 
 set -e

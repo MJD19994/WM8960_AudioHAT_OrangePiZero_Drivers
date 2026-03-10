@@ -74,8 +74,9 @@ fi
 # Remove service files
 log_debug "Removing /etc/systemd/system/wm8960-audio.service"
 rm -f /etc/systemd/system/wm8960-audio.service
-log_debug "Removing /usr/local/bin/wm8960-pll-config.sh"
-rm -f /usr/local/bin/wm8960-pll-config.sh
+log_debug "Removing mixer config script"
+rm -f /usr/local/bin/wm8960-mixer-config.sh
+rm -f /usr/local/bin/wm8960-pll-config.sh  # legacy name from previous installs
 systemctl daemon-reload
 
 # Remove ALSA config (backup first)
@@ -124,7 +125,15 @@ fi
 
 rm -f /etc/wm8960-audio-stack.conf
 
-# Remove WM8960 module if it was built from source (Armbian)
+# Remove DKMS module if installed
+if command -v dkms &>/dev/null && dkms status wm8960-audio-hat/1.0 2>/dev/null | grep -q .; then
+    log_info "Removing DKMS module..."
+    dkms remove wm8960-audio-hat/1.0 --all 2>/dev/null || log_warn "DKMS remove failed"
+    rm -rf /usr/src/wm8960-audio-hat-1.0
+    log_debug "DKMS module and source removed"
+fi
+
+# Remove WM8960 module if it was built from source (legacy, pre-DKMS)
 if [ -f /etc/armbian-release ]; then
     log_debug "Armbian detected — checking for built-from-source WM8960 module"
     WM8960_MODULE_BASE="/lib/modules/$(uname -r)/kernel/sound/soc/codecs/snd-soc-wm8960"
