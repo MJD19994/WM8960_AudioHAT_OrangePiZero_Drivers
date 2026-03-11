@@ -419,7 +419,7 @@ If the steps below don't help, check the service logs with `journalctl -u wm8960
    amixer -c ahub0wm8960 sset 'Capture' on
    ```
 2. Check capture volume: `amixer -c ahub0wm8960 sset 'Capture' 45`
-3. Verify the PLL service ran successfully: `systemctl status wm8960-audio.service`
+3. Verify the audio service ran successfully: `systemctl status wm8960-audio.service`
 4. Try re-running the configuration: `sudo /usr/local/bin/wm8960-mixer-config.sh`
 
 ## Advanced Topics

@@ -177,9 +177,11 @@ check_prerequisites() {
 }
 
 install_dkms_module() {
-    # Skip if module already available (built-in or previously installed via DKMS)
-    if modinfo snd_soc_wm8960 >/dev/null 2>&1; then
-        log_info "WM8960 kernel module already available — skipping DKMS"
+    # Skip if our DKMS module is already installed for the running kernel
+    local kver
+    kver=$(uname -r)
+    if dkms status wm8960-audio-hat/1.0 -k "$kver" 2>/dev/null | grep -q installed; then
+        log_info "WM8960 DKMS module already installed for ${kver} — skipping"
         return 0
     fi
 
@@ -193,10 +195,13 @@ install_dkms_module() {
     fi
 
     # Ensure kernel headers are available
-    local kver
-    kver=$(uname -r)
     if [ ! -d "/lib/modules/${kver}/build" ]; then
         if [ "$DISTRO" = "orangepi" ]; then
+            # Bundled headers only support 6.1.31; fail early on mismatched kernels
+            if [[ ! "$kver" =~ ^6\.1\.31 ]]; then
+                log_error "Bundled Orange Pi headers only support 6.1.31; found ${kver}"
+                exit 1
+            fi
             # Orange Pi OS: extract shipped headers tarball
             local kheaders_tar="$SCRIPT_DIR/dkms/kheaders-6.1.31-sun50iw9.tar.xz"
             if [ ! -f "$kheaders_tar" ]; then
@@ -414,8 +419,12 @@ install_service() {
 install_alsa_config() {
     log_info "Installing ALSA configuration..."
 
-    # Install ALSA config
+    # Install ALSA config (back up existing config on first install)
     if [ -f "$SCRIPT_DIR/configs/asound.conf" ]; then
+        if [ -f /etc/asound.conf ] && [ ! -f /etc/asound.conf.wm8960-backup ]; then
+            cp /etc/asound.conf /etc/asound.conf.wm8960-backup
+            log_info "Backed up existing /etc/asound.conf"
+        fi
         cp "$SCRIPT_DIR/configs/asound.conf" /etc/asound.conf || log_warn "Failed to install asound.conf"
     fi
 

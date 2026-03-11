@@ -2,7 +2,7 @@
 
 This guide covers kernel compilation options for WM8960 support on Orange Pi Zero 2W.
 
-> **Note:** The recommended installation method is `sudo ./install.sh` from the project root, which uses DKMS to build the WM8960 module automatically against your running kernel. The manual kernel compilation instructions below are only needed if you want to build a fully custom kernel.
+> **Note:** The recommended installation method is `sudo ./install.sh` from the project root, which uses DKMS to build the patched WM8960 module automatically against your running kernel. The manual kernel compilation instructions below are only needed if you want to build a fully custom kernel. If you take that path, apply the PLL fixes from `dkms/wm8960.c` to your kernel source or confirm your source already contains them (see `docs/wm8960-driver-patches.md`).
 
 ## Compile Your Own Kernel
 

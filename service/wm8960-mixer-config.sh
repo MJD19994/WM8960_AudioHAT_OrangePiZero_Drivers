@@ -188,11 +188,16 @@ detect_card() {
 }
 
 has_saved_state() {
-    # Check if alsactl has a saved state for this card
+    # Check if alsactl has a saved state for this card.
+    # alsactl keys state sections by card ID (e.g., "state.ahub0wm8960"),
+    # not by card number (e.g., "state.card0").
     local card_num="$1"
     local state_file="/var/lib/alsa/asound.state"
+    local card_id
 
-    [ -f "$state_file" ] && grep -qE "state\.card${card_num}[[:space:]]*\{" "$state_file" 2>/dev/null
+    [ -f "$state_file" ] || return 1
+    card_id=$(cat "/proc/asound/card${card_num}/id" 2>/dev/null) || return 1
+    grep -q "state\.${card_id}[[:space:]]*{" "$state_file" 2>/dev/null
 }
 
 apply_mixer_defaults() {
@@ -328,9 +333,10 @@ ensure_dkms_module() {
     local kver
     kver=$(uname -r)
 
-    # Check if the WM8960 module is already available for this kernel
-    if modinfo snd_soc_wm8960 >/dev/null 2>&1; then
-        log_debug "WM8960 module available for kernel $kver"
+    # Check if our DKMS module is already installed for this kernel
+    if dkms status "${module_name}/${module_version}" -k "$kver" 2>/dev/null | grep -q installed; then
+        log_debug "WM8960 DKMS module already installed for kernel $kver"
+        modprobe snd_soc_wm8960 2>/dev/null || true
         return 0
     fi
 

@@ -51,7 +51,7 @@ The Armbian overlay includes two extra fragments not needed on Orange Pi OS:
 
 ## Manual Overlay Installation
 
-If you want to apply an overlay manually (for experimentation or debugging), here are the steps that `install.sh` automates:
+If you want to apply an overlay manually (for experimentation or debugging), here are the steps that `install.sh` automates. **All commands require root** (`sudo -i` or `sudo` prefix):
 
 ### 1. Find Your Base DTB
 
