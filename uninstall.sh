@@ -151,7 +151,15 @@ else
 fi
 
 # Restore original device tree
-DTB_DIR=$(find /boot -type d -name "allwinner" -path "*/dtb*" 2>/dev/null | head -1)
+# Prefer /boot/dtb (symlink the bootloader actually uses) to avoid
+# restoring the wrong tree when multiple DTB directories exist
+if [ -L /boot/dtb ] || [ -d /boot/dtb ]; then
+    DTB_BASE_DIR=$(readlink -f /boot/dtb)
+    DTB_DIR=$(find "$DTB_BASE_DIR" -type d -name "allwinner" 2>/dev/null | head -1)
+fi
+if [ -z "$DTB_DIR" ]; then
+    DTB_DIR=$(find /boot -type d -name "allwinner" -path "*/dtb*" 2>/dev/null | head -1)
+fi
 log_debug "DTB_DIR=$DTB_DIR"
 if [ -n "$DTB_DIR" ]; then
     BASE_DTB=$(find "$DTB_DIR" -maxdepth 1 -name "sun50i-h61*-orangepi-zero2w.dtb" 2>/dev/null | head -1)
