@@ -114,27 +114,38 @@ configure_pll() {
     echo "$DEVICE_ID" > "$DRIVER_PATH/unbind" 2>/dev/null || true
     sleep 0.2
 
-    # Configure PLL registers
-    i2cset -y $I2C_BUS $WM8960_ADDR 0x04 0x00 || { log "ERROR: Failed to write CLOCK1"; exit 1; }
-    i2cset -y $I2C_BUS $WM8960_ADDR 0x1a 0x00 || { log "ERROR: Failed to write POWER2"; exit 1; }
-    i2cset -y $I2C_BUS $WM8960_ADDR 0x34 $PLL1_VAL || { log "ERROR: Failed to write PLL1"; exit 1; }
-    i2cset -y $I2C_BUS $WM8960_ADDR 0x35 $K_HIGH || { log "ERROR: Failed to write PLL2"; exit 1; }
-    i2cset -y $I2C_BUS $WM8960_ADDR 0x36 $K_MID || { log "ERROR: Failed to write PLL3"; exit 1; }
-    i2cset -y $I2C_BUS $WM8960_ADDR 0x37 $K_LOW || { log "ERROR: Failed to write PLL4"; exit 1; }
+    # Configure PLL registers in a subshell so we always rebind on failure
+    (
+        set +e
+        local_fail=0
+        i2cset -y $I2C_BUS $WM8960_ADDR 0x04 0x00 || { log "ERROR: Failed to write CLOCK1"; local_fail=1; }
+        i2cset -y $I2C_BUS $WM8960_ADDR 0x1a 0x00 || { log "ERROR: Failed to write POWER2"; local_fail=1; }
+        i2cset -y $I2C_BUS $WM8960_ADDR 0x34 $PLL1_VAL || { log "ERROR: Failed to write PLL1"; local_fail=1; }
+        i2cset -y $I2C_BUS $WM8960_ADDR 0x35 $K_HIGH || { log "ERROR: Failed to write PLL2"; local_fail=1; }
+        i2cset -y $I2C_BUS $WM8960_ADDR 0x36 $K_MID || { log "ERROR: Failed to write PLL3"; local_fail=1; }
+        i2cset -y $I2C_BUS $WM8960_ADDR 0x37 $K_LOW || { log "ERROR: Failed to write PLL4"; local_fail=1; }
 
-    # Enable PLL
-    log "Enabling PLL..."
-    i2cset -y $I2C_BUS $WM8960_ADDR 0x1a 0x01 || { log "ERROR: Failed to enable PLL power"; exit 1; }
-    sleep 0.25
+        if [ $local_fail -eq 0 ]; then
+            # Enable PLL
+            i2cset -y $I2C_BUS $WM8960_ADDR 0x1a 0x01 || { log "ERROR: Failed to enable PLL power"; local_fail=1; }
+            sleep 0.25
+            # Switch SYSCLK to PLL
+            i2cset -y $I2C_BUS $WM8960_ADDR 0x04 0x01 || { log "ERROR: Failed to set SYSCLK source"; local_fail=1; }
+        fi
+        exit $local_fail
+    )
+    pll_result=$?
 
-    # Switch SYSCLK to PLL
-    i2cset -y $I2C_BUS $WM8960_ADDR 0x04 0x01 || { log "ERROR: Failed to set SYSCLK source"; exit 1; }
-
-    # Rebind driver
+    # Always rebind driver, even if PLL configuration failed
     log "Rebinding driver..."
     echo "$DEVICE_ID" > "$DRIVER_PATH/bind" || { log "ERROR: Failed to rebind driver"; exit 1; }
     sleep 1
     log_debug "Driver rebound successfully"
+
+    if [ $pll_result -ne 0 ]; then
+        log "ERROR: PLL register configuration failed"
+        exit 1
+    fi
 
     log "PLL configuration complete!"
 }

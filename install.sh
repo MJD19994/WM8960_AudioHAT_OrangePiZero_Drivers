@@ -170,9 +170,12 @@ install_dkms_module() {
                 exit 1
             fi
             log_info "Extracting Orange Pi OS kernel headers..."
-            tar -xJf "$kheaders_tar" -C /
+            # Extract to /usr/src/ (conventional location) instead of /
+            # The tarball contains a top-level kheaders-6.1.31-sun50iw9/ directory
+            mkdir -p /usr/src
+            tar -xJf "$kheaders_tar" -C /usr/src
             # Create build symlink so DKMS can find the headers
-            ln -sf /kheaders-6.1.31-sun50iw9 "/lib/modules/${kver}/build"
+            ln -sfn /usr/src/kheaders-6.1.31-sun50iw9 "/lib/modules/${kver}/build"
         else
             # Armbian / other: install from apt
             log_info "Installing kernel headers from apt..."
@@ -228,8 +231,15 @@ install_dkms_module() {
 patch_dtb() {
     log_info "Patching device tree for WM8960 audio support..."
 
-    # Find the DTB directory (follows /boot/dtb symlink)
-    DTB_DIR=$(find /boot -type d -name "allwinner" -path "*/dtb*" 2>/dev/null | head -1)
+    # Find the DTB directory — prefer /boot/dtb (symlink the bootloader actually uses)
+    # to avoid patching a stale tree when multiple DTB directories exist
+    if [ -L /boot/dtb ] || [ -d /boot/dtb ]; then
+        DTB_BASE=$(readlink -f /boot/dtb)
+        DTB_DIR=$(find "$DTB_BASE" -type d -name "allwinner" 2>/dev/null | head -1)
+    fi
+    if [ -z "$DTB_DIR" ]; then
+        DTB_DIR=$(find /boot -type d -name "allwinner" -path "*/dtb*" 2>/dev/null | head -1)
+    fi
     if [ -z "$DTB_DIR" ]; then
         log_error "Could not find allwinner DTB directory under /boot"
         exit 1
