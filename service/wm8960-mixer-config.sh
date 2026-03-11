@@ -82,7 +82,7 @@ wait_for_device() {
     while [ ! -e "$DRIVER_PATH/$DEVICE_ID" ] && [ $count -lt $max_wait ]; do
         log_debug "Device not ready, waiting... (${count}/${max_wait}s)"
         sleep 1
-        ((count++))
+        count=$((count + 1))
     done
 
     if [ ! -e "$DRIVER_PATH/$DEVICE_ID" ]; then
@@ -158,7 +158,7 @@ wait_for_soundcard() {
     while ! aplay -l 2>/dev/null | grep -qi "wm8960" && [ $count -lt $max_wait ]; do
         log_debug "Sound card not ready, waiting... (${count}/${max_wait}s)"
         sleep 1
-        ((count++))
+        count=$((count + 1))
     done
 
     if ! aplay -l 2>/dev/null | grep -qi "wm8960"; then
