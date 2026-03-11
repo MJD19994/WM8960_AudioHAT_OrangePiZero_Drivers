@@ -84,14 +84,44 @@ check_root() {
 
 check_prerequisites() {
     log_info "Checking prerequisites..."
-    
-    # Check for required commands
+
+    # Map commands to their apt packages
+    local -A CMD_PKG=(
+        [dtc]="device-tree-compiler"
+        [fdtoverlay]="device-tree-compiler"
+        [fdtget]="device-tree-compiler"
+        [i2cset]="i2c-tools"
+        [amixer]="alsa-utils"
+    )
+
+    # Check for required commands, install missing packages
+    local missing_pkgs=()
     for cmd in dtc fdtoverlay fdtget i2cset amixer systemctl; do
         if ! command -v "$cmd" &> /dev/null; then
-            log_error "Required command '$cmd' not found"
-            exit 1
+            local pkg="${CMD_PKG[$cmd]:-}"
+            if [ -n "$pkg" ]; then
+                log_warn "Required command '$cmd' not found — will install '$pkg'"
+                # Avoid duplicate package names
+                local already=false
+                for p in "${missing_pkgs[@]}"; do
+                    [ "$p" = "$pkg" ] && already=true
+                done
+                $already || missing_pkgs+=("$pkg")
+            else
+                log_error "Required command '$cmd' not found and no package mapping available"
+                exit 1
+            fi
         fi
     done
+
+    if [ ${#missing_pkgs[@]} -gt 0 ]; then
+        log_info "Installing missing packages: ${missing_pkgs[*]}"
+        apt-get update -qq
+        apt-get install -y -qq "${missing_pkgs[@]}" || {
+            log_error "Failed to install required packages"
+            exit 1
+        }
+    fi
     
     # Check kernel version
     KERNEL_VER=$(uname -r)
