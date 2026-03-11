@@ -115,6 +115,7 @@ configure_pll() {
     sleep 0.2
 
     # Configure PLL registers in a subshell so we always rebind on failure
+    pll_result=0
     (
         set +e
         local_fail=0
@@ -133,8 +134,7 @@ configure_pll() {
             i2cset -y $I2C_BUS $WM8960_ADDR 0x04 0x01 || { log "ERROR: Failed to set SYSCLK source"; local_fail=1; }
         fi
         exit $local_fail
-    )
-    pll_result=$?
+    ) || pll_result=$?
 
     # Always rebind driver, even if PLL configuration failed
     log "Rebinding driver..."
