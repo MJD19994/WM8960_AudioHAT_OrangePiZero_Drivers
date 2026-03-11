@@ -1,5 +1,5 @@
 [Unit]
-Description=WM8960 Audio HAT Mixer Configuration
+Description=WM8960 Audio HAT Configuration
 After=sound.target
 Requires=sound.target
 

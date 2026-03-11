@@ -86,7 +86,7 @@ check_prerequisites() {
     log_info "Checking prerequisites..."
     
     # Check for required commands
-    for cmd in dtc fdtoverlay fdtget amixer systemctl; do
+    for cmd in dtc fdtoverlay fdtget i2cset amixer systemctl; do
         if ! command -v "$cmd" &> /dev/null; then
             log_error "Required command '$cmd' not found"
             exit 1
@@ -141,6 +141,8 @@ install_dkms_module() {
             fi
             log_info "Extracting Orange Pi OS kernel headers..."
             tar -xJf "$kheaders_tar" -C /
+            # Create build symlink so DKMS can find the headers
+            ln -sf /kheaders-6.1.31-sun50iw9 "/lib/modules/${kver}/build"
         else
             # Armbian / other: install from apt
             log_info "Installing kernel headers from apt..."

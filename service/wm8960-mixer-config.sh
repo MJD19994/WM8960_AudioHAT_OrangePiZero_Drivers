@@ -1,7 +1,12 @@
 #!/bin/bash
 #
-# WM8960 Mixer Configuration Script
-# Configures the WM8960 codec mixer settings for proper audio output and input.
+# WM8960 Audio HAT Configuration Script
+# Configures the WM8960 codec PLL (Orange Pi OS only) and mixer settings.
+#
+# On Orange Pi OS (vendor BSP kernel), the machine driver does not call the
+# ASoC clock APIs on the codec, so we must configure the PLL via i2cset before
+# audio will work. On Armbian (mainline kernel), the DKMS driver handles PLL
+# internally and PLL configuration is skipped.
 #
 # On first boot (no saved state), applies factory defaults for playback routing,
 # volume levels, and capture settings. On subsequent boots, restores the user's
@@ -34,14 +39,104 @@ for arg in "$@"; do
     esac
 done
 
+WM8960_ADDR=0x1a
+DRIVER_PATH="/sys/bus/i2c/drivers/wm8960"
+
+# Auto-detect I2C bus from sysfs (bus number varies: 2 on Orange Pi OS, 3 on Armbian)
+if [ -z "$I2C_BUS" ]; then
+    I2C_BUS=$(find /sys/bus/i2c/devices/ -maxdepth 1 -name '*-001a' 2>/dev/null \
+              | head -1 | sed -n 's|.*/\([0-9]*\)-001a$|\1|p' || true)
+    if [ -z "$I2C_BUS" ]; then
+        I2C_BUS=2  # fallback for Orange Pi OS default
+    fi
+fi
+
+# Build device identifier (e.g., "2-001a")
+if [ -z "$DEVICE_ID" ]; then
+    DEVICE_ID="${I2C_BUS}-$(printf '%04x' $((WM8960_ADDR)))"
+fi
+
 log() {
-    echo "[WM8960-MIXER] $1"
+    echo "[WM8960] $1"
 }
 
 log_debug() {
     if [ "$VERBOSE" = true ]; then
-        echo "[WM8960-MIXER] [DEBUG] $1"
+        echo "[WM8960] [DEBUG] $1"
     fi
+}
+
+# Detect OS: Armbian vs Orange Pi OS
+# On Armbian, the DKMS driver handles PLL configuration internally.
+# On Orange Pi OS, the vendor BSP machine driver doesn't call the ASoC
+# clock APIs, so we must configure PLL via i2cset.
+is_armbian() {
+    [ -f /etc/armbian-release ]
+}
+
+wait_for_device() {
+    local max_wait=10
+    local count=0
+
+    log_debug "Waiting for device at $DRIVER_PATH/$DEVICE_ID"
+    while [ ! -e "$DRIVER_PATH/$DEVICE_ID" ] && [ $count -lt $max_wait ]; do
+        log_debug "Device not ready, waiting... (${count}/${max_wait}s)"
+        sleep 1
+        ((count++))
+    done
+
+    if [ ! -e "$DRIVER_PATH/$DEVICE_ID" ]; then
+        log "ERROR: WM8960 device not found after ${max_wait}s"
+        log "Check that the WM8960 is connected to I2C bus $I2C_BUS at address $WM8960_ADDR"
+        exit 1
+    fi
+    log_debug "Device found after ${count}s"
+}
+
+configure_pll() {
+    log "Configuring WM8960 PLL (Orange Pi OS)..."
+
+    # PLL values for 24MHz -> 12.288MHz SYSCLK (48kHz audio)
+    local PRE_DIV=1
+    local N=4
+    local K=0x189375
+
+    local PLL1_VAL=$((0x20 | (PRE_DIV << 4) | N))
+    local K_HIGH=$(((K >> 16) & 0xFF))
+    local K_MID=$(((K >> 8) & 0xFF))
+    local K_LOW=$((K & 0xFF))
+
+    log_debug "PLL Config: PRE_DIV=$PRE_DIV, N=$N, K=$K"
+    log_debug "PLL1=0x$(printf '%02x' $PLL1_VAL), PLL2=0x$(printf '%02x' $K_HIGH), PLL3=0x$(printf '%02x' $K_MID), PLL4=0x$(printf '%02x' $K_LOW)"
+
+    # Unbind driver to access I2C directly
+    log "Temporarily unbinding driver..."
+    echo "$DEVICE_ID" > "$DRIVER_PATH/unbind" 2>/dev/null || true
+    sleep 0.2
+
+    # Configure PLL registers
+    i2cset -y $I2C_BUS $WM8960_ADDR 0x04 0x00 || { log "ERROR: Failed to write CLOCK1"; exit 1; }
+    i2cset -y $I2C_BUS $WM8960_ADDR 0x1a 0x00 || { log "ERROR: Failed to write POWER2"; exit 1; }
+    i2cset -y $I2C_BUS $WM8960_ADDR 0x34 $PLL1_VAL || { log "ERROR: Failed to write PLL1"; exit 1; }
+    i2cset -y $I2C_BUS $WM8960_ADDR 0x35 $K_HIGH || { log "ERROR: Failed to write PLL2"; exit 1; }
+    i2cset -y $I2C_BUS $WM8960_ADDR 0x36 $K_MID || { log "ERROR: Failed to write PLL3"; exit 1; }
+    i2cset -y $I2C_BUS $WM8960_ADDR 0x37 $K_LOW || { log "ERROR: Failed to write PLL4"; exit 1; }
+
+    # Enable PLL
+    log "Enabling PLL..."
+    i2cset -y $I2C_BUS $WM8960_ADDR 0x1a 0x01 || { log "ERROR: Failed to enable PLL power"; exit 1; }
+    sleep 0.25
+
+    # Switch SYSCLK to PLL
+    i2cset -y $I2C_BUS $WM8960_ADDR 0x04 0x01 || { log "ERROR: Failed to set SYSCLK source"; exit 1; }
+
+    # Rebind driver
+    log "Rebinding driver..."
+    echo "$DEVICE_ID" > "$DRIVER_PATH/bind" || { log "ERROR: Failed to rebind driver"; exit 1; }
+    sleep 1
+    log_debug "Driver rebound successfully"
+
+    log "PLL configuration complete!"
 }
 
 wait_for_soundcard() {
@@ -217,13 +312,26 @@ configure_mixer() {
 }
 
 # Main execution
-log "Starting WM8960 mixer configuration..."
+log "Starting WM8960 audio configuration..."
 
-# Wait for sound card to be available
+# Wait for I2C device to be available
+wait_for_device
+
+# Configure PLL on Orange Pi OS only
+# On Armbian, the DKMS driver handles PLL internally via ASoC.
+# On Orange Pi OS, the vendor BSP machine driver doesn't call set_sysclk/set_pll
+# on the codec, so we must configure PLL via direct i2cset.
+if is_armbian; then
+    log_debug "Armbian detected — skipping PLL configuration (handled by driver)"
+else
+    configure_pll
+fi
+
+# Wait for sound card after PLL config (rebind creates new card instance)
 wait_for_soundcard
 
 # Configure mixer
 configure_mixer
 
-log "WM8960 mixer configuration complete! Audio is ready."
+log "WM8960 audio configuration complete! Audio is ready."
 exit 0

@@ -151,10 +151,15 @@ if [ -n "$CARD_NUM" ]; then
 fi
 
 # 8. Check dmesg for errors
-WM8960_ERRORS=$(dmesg 2>/dev/null | grep -i wm8960 | grep -ci "error\|fail" || true)
+# Filter out module signing warnings — expected for any DKMS out-of-tree module
+WM8960_ERRORS=$(dmesg 2>/dev/null | grep -i wm8960 \
+    | grep -iv "module verification failed\|tainting kernel\|loading out-of-tree" \
+    | grep -ci "error\|fail" || true)
 if [ "$WM8960_ERRORS" -gt 0 ]; then
     warn "Found $WM8960_ERRORS error(s) in dmesg related to WM8960:"
-    dmesg 2>/dev/null | grep -i wm8960 | grep -i "error\|fail" | tail -3 | while read -r line; do
+    dmesg 2>/dev/null | grep -i wm8960 \
+        | grep -iv "module verification failed\|tainting kernel\|loading out-of-tree" \
+        | grep -i "error\|fail" | tail -3 | while read -r line; do
         echo "       $line"
     done
 else
