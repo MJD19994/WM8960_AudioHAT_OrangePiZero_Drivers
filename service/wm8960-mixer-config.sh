@@ -322,8 +322,61 @@ configure_mixer() {
     fi
 }
 
+ensure_dkms_module() {
+    local module_name="wm8960-audio-hat"
+    local module_version="1.0"
+    local kver
+    kver=$(uname -r)
+
+    # Check if the WM8960 module is already available for this kernel
+    if modinfo snd_soc_wm8960 >/dev/null 2>&1; then
+        log_debug "WM8960 module available for kernel $kver"
+        return 0
+    fi
+
+    log "WM8960 module not found for kernel $kver — attempting DKMS rebuild..."
+
+    # Verify DKMS is installed and module source exists
+    if ! command -v dkms >/dev/null 2>&1; then
+        log "ERROR: dkms not installed, cannot rebuild module"
+        return 1
+    fi
+
+    if [ ! -d "/usr/src/${module_name}-${module_version}" ]; then
+        log "ERROR: DKMS source not found at /usr/src/${module_name}-${module_version}"
+        return 1
+    fi
+
+    # Check kernel headers are available
+    if [ ! -d "/lib/modules/${kver}/build" ]; then
+        log "ERROR: Kernel headers not found for ${kver}"
+        log "Install headers and re-run, or reboot into the previous kernel"
+        return 1
+    fi
+
+    # Ensure module is registered with DKMS
+    if ! dkms status "${module_name}/${module_version}" 2>/dev/null | grep -q .; then
+        log "Registering DKMS module..."
+        dkms add "${module_name}/${module_version}" || { log "ERROR: dkms add failed"; return 1; }
+    fi
+
+    # Build and install for running kernel
+    log "Building module for kernel ${kver}..."
+    if dkms install "${module_name}/${module_version}" -k "${kver}" 2>&1; then
+        log "DKMS rebuild successful!"
+        # Load the freshly built module
+        modprobe snd_soc_wm8960 2>/dev/null || true
+    else
+        log "ERROR: DKMS build failed for kernel ${kver}"
+        return 1
+    fi
+}
+
 # Main execution
 log "Starting WM8960 audio configuration..."
+
+# Ensure DKMS module is built for the running kernel (handles kernel upgrades)
+ensure_dkms_module || log "WARNING: DKMS module check failed — audio may not work"
 
 # Wait for I2C device to be available
 wait_for_device

@@ -47,7 +47,7 @@ The Armbian overlay includes two extra fragments not needed on Orange Pi OS:
 | I2C1 pinctrl | Implicit (vendor kernel) | Explicit pin mux required |
 | I2C bus number | Bus 2 | Bus 3 |
 | Sound card number | Card 3 | Card 0 |
-| WM8960 kernel module | Included in kernel package | Built from source by `build-module.sh` |
+| WM8960 kernel module | Built via DKMS | Built via DKMS |
 
 ## Manual Overlay Installation
 

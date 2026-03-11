@@ -105,8 +105,6 @@ fi
 # 5. Check mixer config script
 if [ -x /usr/local/bin/wm8960-mixer-config.sh ]; then
     pass "Mixer configuration script installed"
-elif [ -x /usr/local/bin/wm8960-pll-config.sh ]; then
-    pass "Legacy PLL configuration script installed"
 else
     fail "Mixer configuration script not found at /usr/local/bin/wm8960-mixer-config.sh"
     ((ERRORS++))

@@ -140,6 +140,40 @@ check_prerequisites() {
             log_warn "Non-interactive mode, continuing anyway..."
         fi
     fi
+
+    # Check for pending kernel update (running kernel vs installed kernel mismatch)
+    # If a kernel update was installed via apt but the system hasn't rebooted,
+    # DKMS would build for the old kernel. The next boot's DKMS auto-rebuild
+    # would catch it, but better to warn the user early.
+    local installed_ver
+    installed_ver=$(dpkg -l 'linux-image-*' 2>/dev/null | awk '/^ii.*linux-image-[0-9]/{print $2}' | sed 's/linux-image-//' | sort -V | tail -1)
+    if [ -n "$installed_ver" ] && [ "$installed_ver" != "$KERNEL_VER" ]; then
+        log_warn "=============================================="
+        log_warn "Kernel update pending reboot"
+        log_warn "=============================================="
+        echo ""
+        echo "  Running kernel:   $KERNEL_VER"
+        echo "  Installed kernel: $installed_ver"
+        echo ""
+        echo "A kernel update has been installed but not yet loaded."
+        echo "If you continue, DKMS will build for the OLD kernel and"
+        echo "will need to rebuild after reboot (adds ~30s to boot)."
+        echo ""
+        echo "Recommended: reboot first, then re-run this script."
+        echo ""
+        if [ -t 0 ]; then
+            read -rp "Continue anyway? (y/N) " response
+            if [[ ! "$response" =~ ^[Yy]$ ]]; then
+                log_info "Exiting. Please reboot and re-run: sudo ./install.sh"
+                exit 1
+            fi
+            log_info "Continuing with running kernel $KERNEL_VER..."
+        else
+            log_warn "Non-interactive mode: continuing with running kernel $KERNEL_VER"
+            log_warn "(Boot-time DKMS rebuild will handle the new kernel automatically)"
+        fi
+        echo ""
+    fi
 }
 
 install_dkms_module() {
