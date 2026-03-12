@@ -4,16 +4,17 @@ Complete audio support for WM8960-based audio HATs (including ReSpeaker 2-Mic HA
 
 ## Features
 
-- ✅ Full WM8960 codec support with proper PLL configuration
+- ✅ Full WM8960 codec support via DKMS (auto-builds for your kernel)
 - ✅ Stereo audio playback through headphones and/or speaker
 - ✅ Stereo audio recording from onboard microphones
 - ✅ Simultaneous headphone and speaker output
-- ✅ Automatic PLL configuration at boot
-- ✅ Automatic SoC detection (H616/H618) and card number detection
+- ✅ Automatic PLL configuration at boot (Orange Pi OS only)
+- ✅ Automatic OS detection, SoC detection (H616/H618), and card number detection
 - ✅ Complete mixer configuration (all WM8960 controls set to known defaults)
 - ✅ Multi-application audio support (dmix/dsnoop)
+- ✅ PulseAudio and PipeWire integration (auto-detected)
 - ✅ Hardware ALC, Noise Gate, and 3D Enhancement controls exposed
-- ✅ Works with Orange Pi OS (Bookworm, kernel 6.1.31) or Armbian (Trixie, kernel 6.12.74)
+- ✅ Works with Orange Pi OS (Bookworm, kernel 6.1.31) or Armbian (Trixie, kernel 6.12)
 
 ## Hardware Compatibility
 
@@ -30,8 +31,7 @@ Complete audio support for WM8960-based audio HATs (including ReSpeaker 2-Mic HA
 - [Armbian Trixie (kernel 6.12.74-current-sunxi64)](https://www.armbian.com/orangepi-zero2w/)
 
 **Requirements:**
-- I2C tools installed
-- For Armbian: kernel headers and build tools (installed automatically by the setup script)
+- All prerequisites (I2C tools, device-tree-compiler, ALSA utils, DKMS, kernel headers, build tools) are installed automatically by the installer
 
 ## Quick Start
 
@@ -42,25 +42,7 @@ sudo apt update && sudo apt upgrade -y
 sudo apt install -y git    # Armbian may not include git by default
 ```
 
-### Quick Setup (Recommended)
-
-Installs everything in one step — kernel with WM8960 support (if needed) and all driver components:
-
-```bash
-git clone https://github.com/MJD19994/WM8960_AudioHAT_OrangePiZero_Drivers
-cd WM8960_AudioHAT_OrangePiZero_Drivers
-chmod +x quick-setup.sh
-sudo ./quick-setup.sh
-sudo reboot
-```
-
-The installer automatically detects your OS (Orange Pi OS or Armbian) and handles the differences:
-- **Orange Pi OS**: Installs the pre-compiled kernel with WM8960 support (if needed)
-- **Armbian**: Builds the WM8960 module from source against your kernel headers
-
-### Driver-Only Installation
-
-If you've already installed the kernel with WM8960 support separately:
+### Installation
 
 ```bash
 git clone https://github.com/MJD19994/WM8960_AudioHAT_OrangePiZero_Drivers
@@ -69,6 +51,12 @@ chmod +x install.sh
 sudo ./install.sh
 sudo reboot
 ```
+
+The installer automatically detects your OS and handles the differences:
+- **Orange Pi OS**: Builds the WM8960 module via DKMS using shipped kernel headers
+- **Armbian**: Installs kernel headers from apt, then builds the WM8960 module via DKMS
+- Patches the device tree, installs the mixer configuration service, configures ALSA
+- Auto-detects and configures PulseAudio or PipeWire if installed
 
 ### Testing Audio
 
@@ -132,14 +120,18 @@ This package provides:
    - Enables I2C1 and declares WM8960 codec at address 0x1a
    - Armbian overlay additionally enables AHUB DAM register space and I2C pin muxing
 
-2. **PLL Configuration Service** (`service/wm8960-pll-config.sh`)
-   - Runs at boot via systemd
-   - Temporarily unbinds WM8960 driver
-   - Configures PLL registers via I2C (24MHz → 12.288MHz for 48kHz audio)
-   - Rebinds driver
-   - Configures all WM8960 mixer controls to known defaults (playback routing, capture path, DAC/ADC settings, ALC, Noise Gate, 3D Enhancement, zero-cross detection)
+2. **DKMS Kernel Module** (`dkms/`)
+   - Patched WM8960 codec driver built via DKMS against your running kernel
+   - Automatically rebuilds on kernel upgrades
+   - Includes PLL fixes for proper clock generation from onboard 24MHz crystal
 
-3. **ALSA Configuration** (`configs/asound.conf`)
+3. **Mixer Configuration Service** (`service/wm8960-mixer-config.sh`)
+   - Runs at boot via systemd
+   - On Orange Pi OS: configures PLL registers via I2C (temporarily unbinds/rebinds driver)
+   - Configures all WM8960 mixer controls to known defaults (playback routing, capture path, DAC/ADC settings, ALC, Noise Gate, 3D Enhancement, zero-cross detection)
+   - Restores saved mixer state on subsequent boots (via `alsactl`)
+
+4. **ALSA Configuration** (`configs/asound.conf`)
    - Sets WM8960 as default audio device
    - dmix plugin for multi-application playback
    - dsnoop plugin for multi-application recording
@@ -156,7 +148,7 @@ sudo reboot
 
 This safely removes the systemd service, restores the original device tree, and removes ALSA config files. Your existing ALSA configuration is backed up before removal.
 
-**Note:** On Armbian, the uninstall script also removes the WM8960 kernel module that was built from source. On Orange Pi OS, the uninstall does not roll back kernel changes — the WM8960-enabled kernel is safe to keep.
+The uninstall script also removes the DKMS module, restores the original device tree, and cleans up audio server configuration (PulseAudio/PipeWire).
 
 ## Project Structure
 
@@ -164,26 +156,39 @@ This safely removes the systemd service, restores the original device tree, and 
 WM8960_AudioHAT_OrangePiZero_Drivers/
 ├── README.md                           # This file
 ├── LICENSE                             # License
-├── quick-setup.sh                      # All-in-one setup (kernel/module + driver)
-├── install.sh                          # Driver-only installation (auto-detects supported OS)
+├── install.sh                          # Installation script (auto-detects OS)
 ├── uninstall.sh                        # Uninstallation script
+├── dkms/                               # DKMS kernel module source
+│   ├── wm8960.c                       # Patched WM8960 codec driver
+│   ├── wm8960.h                       # WM8960 register definitions
+│   ├── Makefile                       # DKMS build file
+│   ├── dkms.conf                      # DKMS configuration
+│   └── kheaders-6.1.31-sun50iw9.tar.xz # Kernel headers (Orange Pi OS)
 ├── overlays-orangepi/                  # Device tree overlay sources
 │   ├── sun50i-h616-wm8960-working.dts # H616 variant
 │   ├── sun50i-h618-wm8960-working.dts # H618 variant (Orange Pi OS)
 │   └── sun50i-h618-wm8960-armbian.dts # H618 variant (Armbian)
 ├── service/                            # System services
-│   ├── wm8960-pll-config.sh           # PLL configuration script
+│   ├── wm8960-mixer-config.sh         # Mixer + PLL configuration script
+│   ├── wm8960-pll-config.sh           # Legacy PLL script (unused, kept for reference)
 │   └── wm8960-audio.service           # Systemd service
-├── configs/                            # ALSA configuration
-│   └── asound.conf                    # ALSA config (sets default device)
-├── kernel/                             # Kernel resources (Orange Pi OS only)
-│   ├── KERNEL.md                      # Kernel build/install guide
-│   └── *.tar.gz                       # Pre-compiled kernel with WM8960 support
+├── configs/                            # Audio configuration
+│   ├── asound.conf                    # ALSA config (sets default device)
+│   ├── pipewire-rate.conf             # PipeWire rate lock (48kHz)
+│   ├── wireplumber-wm8960.conf        # WirePlumber priority rules
+│   ├── pulse-daemon.conf              # PulseAudio daemon config
+│   ├── 91-wm8960-pulseaudio.rules     # PulseAudio udev rule
+│   ├── wm8960-audiohat.conf           # PulseAudio profile set
+│   ├── wm8960-output.conf             # PulseAudio output path
+│   └── wm8960-input.conf              # PulseAudio input path
 ├── scripts/                            # Utility scripts
 │   ├── test-audio.sh                  # Diagnostics and interactive audio tests
-│   ├── build-module.sh               # Build WM8960 module from source (Armbian)
-│   ├── install-kernel.sh             # Kernel installation (Orange Pi OS)
-│   └── extract-kernel.sh            # Build tool: package kernel from device
+│   ├── install-kernel.sh             # Legacy kernel installer (superseded by DKMS)
+│   ├── build-module.sh               # Legacy module builder (superseded by DKMS)
+│   └── extract-kernel.sh             # Build tool: package kernel from device
+├── kernel/                             # Kernel resources (reference)
+│   ├── KERNEL.md                      # Kernel compilation guide
+│   └── *.tar.gz                       # Pre-compiled kernel (legacy, superseded by DKMS)
 └── docs/                               # Documentation
     └── hardware/                       # Hardware reference
         └── OrangePi_Zero2w_H618_User Manual_v1.3.pdf
@@ -256,7 +261,7 @@ The WM8960 audio signal flows through these mixer stages:
 - **Playback:** DAC → Output Mixer (PCM switch) → Headphone/Speaker amplifier
 - **Capture:** LINPUT1/RINPUT1 → Boost Mixer → Input Mixer (Boost switch) → ADC
 
-All routing switches and volumes are configured automatically by the PLL configuration service at boot. Use the commands above to adjust levels after boot if needed.
+All routing switches and volumes are configured automatically by the mixer configuration service at boot. Use the commands above to adjust levels after boot if needed.
 
 **Saving custom mixer settings:**
 
@@ -271,7 +276,7 @@ On first boot, the service applies defaults and saves them. On subsequent boots,
 
 ```bash
 # Option 1: Reset defaults immediately (no reboot needed)
-sudo /usr/local/bin/wm8960-pll-config.sh --reset-defaults
+sudo /usr/local/bin/wm8960-mixer-config.sh --reset-defaults
 
 # Option 2: Reset on next reboot
 # WARNING: This removes saved state for ALL sound cards, not just WM8960
@@ -369,7 +374,7 @@ sudo systemctl status wm8960-audio.service
 sudo journalctl -u wm8960-audio.service
 
 # Manually run configuration
-sudo /usr/local/bin/wm8960-pll-config.sh
+sudo /usr/local/bin/wm8960-mixer-config.sh
 
 # Disable service
 sudo systemctl disable wm8960-audio.service
@@ -381,7 +386,7 @@ sudo systemctl enable wm8960-audio.service
 sudo systemctl restart wm8960-audio.service
 ```
 
-**Note:** The PLL configuration service runs once at boot (`Type=oneshot`) and does not automatically restart on failure. If the service fails, check the logs with `journalctl -u wm8960-audio.service` and restart it manually.
+**Note:** The mixer configuration service runs once at boot (`Type=oneshot`) and does not automatically restart on failure. If the service fails, check the logs with `journalctl -u wm8960-audio.service` and restart it manually.
 
 ## Troubleshooting
 
@@ -414,17 +419,10 @@ If the steps below don't help, check the service logs with `journalctl -u wm8960
    amixer -c ahub0wm8960 sset 'Capture' on
    ```
 2. Check capture volume: `amixer -c ahub0wm8960 sset 'Capture' 45`
-3. Verify the PLL service ran successfully: `systemctl status wm8960-audio.service`
-4. Try re-running the configuration: `sudo /usr/local/bin/wm8960-pll-config.sh`
+3. Verify the audio service ran successfully: `systemctl status wm8960-audio.service`
+4. Try re-running the configuration: `sudo /usr/local/bin/wm8960-mixer-config.sh`
 
 ## Advanced Topics
-
-### Kernel Requirements
-
-This driver requires WM8960 codec support compiled into the Orange Pi kernel. See [kernel/KERNEL.md](kernel/KERNEL.md) for:
-- Verifying kernel support
-- Compiling custom kernel with WM8960
-- Installing kernel modules
 
 ### Environment Variables
 
@@ -433,13 +431,13 @@ The configuration script supports optional environment variable overrides:
 **WM8960_CARD** - Override the sound card number
 ```bash
 # Force use of card 2 instead of auto-detection
-WM8960_CARD=2 /usr/local/bin/wm8960-pll-config.sh
+WM8960_CARD=2 /usr/local/bin/wm8960-mixer-config.sh
 ```
 
 **DEVICE_ID** - Override the I2C device identifier
 ```bash
 # Override the device ID (default: "2-001a" for Linux bus 2, address 0x1a)
-DEVICE_ID="3-001a" /usr/local/bin/wm8960-pll-config.sh
+DEVICE_ID="3-001a" /usr/local/bin/wm8960-mixer-config.sh
 ```
 
 These are useful for non-standard configurations or systems with multiple WM8960 devices.
@@ -449,27 +447,27 @@ These are useful for non-standard configurations or systems with multiple WM8960
 For debugging or custom configurations, you can manually configure the PLL:
 
 ```bash
-# The WM8960 sits on hardware I2C1 (i2c@5002400), which appears as Linux bus 2 (/dev/i2c-2).
-# The device ID format is "<linux-bus>-<address>", so the default is "2-001a".
-DEVICE_ID="2-001a"
+# Auto-detect the I2C bus (bus 2 on Orange Pi OS, bus 3 on Armbian)
+I2C_BUS=$(find /sys/bus/i2c/devices/ -maxdepth 1 -name '*-001a' | head -1 | sed -n 's|.*/\([0-9]*\)-001a$|\1|p')
+DEVICE_ID="${I2C_BUS}-001a"
 
 # Disable driver
 echo "$DEVICE_ID" > /sys/bus/i2c/drivers/wm8960/unbind
 
 # Configure PLL registers (example for 24MHz → 12.288MHz)
-i2cset -y 2 0x1a 0x34 0x34  # PLL1: N=4, PRE_DIV=1, SDM mode
-i2cset -y 2 0x1a 0x35 0x18  # PLL2: K[23:16]
-i2cset -y 2 0x1a 0x36 0x93  # PLL3: K[15:8]
-i2cset -y 2 0x1a 0x37 0x75  # PLL4: K[7:0]
-i2cset -y 2 0x1a 0x1a 0x01  # Enable PLL power
+i2cset -y $I2C_BUS 0x1a 0x34 0x34  # PLL1: N=4, PRE_DIV=1, SDM mode
+i2cset -y $I2C_BUS 0x1a 0x35 0x18  # PLL2: K[23:16]
+i2cset -y $I2C_BUS 0x1a 0x36 0x93  # PLL3: K[15:8]
+i2cset -y $I2C_BUS 0x1a 0x37 0x75  # PLL4: K[7:0]
+i2cset -y $I2C_BUS 0x1a 0x1a 0x01  # Enable PLL power
 sleep 0.25
-i2cset -y 2 0x1a 0x04 0x01  # Switch SYSCLK to PLL
+i2cset -y $I2C_BUS 0x1a 0x04 0x01  # Switch SYSCLK to PLL
 
 # Re-enable driver
 echo "$DEVICE_ID" > /sys/bus/i2c/drivers/wm8960/bind
 ```
 
-**Note:** The device ID format is `<linux-bus>-<address>` where the bus number is the **Linux bus number** (check with `i2cdetect -l`) and address is a 4-digit hex value. The I2C bus number varies by OS: bus 2 on Orange Pi OS, bus 3 on Armbian. The PLL configuration script auto-detects the correct bus.
+**Note:** The I2C bus number varies by OS (bus 2 on Orange Pi OS, bus 3 on Armbian). The example above auto-detects it from sysfs. You can also check manually with `i2cdetect -l`.
 
 ## Contributing
 

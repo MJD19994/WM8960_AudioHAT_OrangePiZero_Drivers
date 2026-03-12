@@ -1,12 +1,13 @@
 #!/bin/bash
 #
-# WM8960 Kernel Module Builder
+# DEPRECATED: This script is no longer used. DKMS module building is now
+# handled directly by install.sh. This file is kept for reference only.
+#
+# WM8960 Kernel Module Builder (legacy)
 #
 # Builds the WM8960 codec module from source for kernels that don't
 # include it (e.g., Armbian). Downloads source from kernel.org matching
 # the running kernel version, builds out-of-tree, and installs.
-#
-# Can be run standalone or called from quick-setup.sh.
 #
 
 set -euo pipefail

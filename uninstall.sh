@@ -74,8 +74,9 @@ fi
 # Remove service files
 log_debug "Removing /etc/systemd/system/wm8960-audio.service"
 rm -f /etc/systemd/system/wm8960-audio.service
-log_debug "Removing /usr/local/bin/wm8960-pll-config.sh"
-rm -f /usr/local/bin/wm8960-pll-config.sh
+log_debug "Removing mixer config script"
+rm -f /usr/local/bin/wm8960-mixer-config.sh
+rm -f /usr/local/bin/wm8960-pll-config.sh  # legacy name from previous installs
 systemctl daemon-reload
 
 # Remove ALSA config (backup first)
@@ -96,7 +97,43 @@ fi
 
 rm -f /etc/wm8960.state
 
-# Remove WM8960 module if it was built from source (Armbian)
+# Remove audio server configs based on install manifest
+INSTALLED_STACK="alsa"
+if [ -f /etc/wm8960-audio-stack.conf ]; then
+    # shellcheck source=/dev/null
+    . /etc/wm8960-audio-stack.conf
+    INSTALLED_STACK="${AUDIO_STACK:-alsa}"
+    log_debug "Install manifest: AUDIO_STACK=$INSTALLED_STACK"
+fi
+
+if [ "$INSTALLED_STACK" = "pipewire" ]; then
+    log_info "Removing PipeWire/WirePlumber configuration..."
+    rm -f /etc/pipewire/pipewire.conf.d/10-wm8960-rate.conf
+    rm -f /etc/wireplumber/wireplumber.conf.d/51-wm8960.conf
+    log_debug "Removed PipeWire rate config and WirePlumber priority rules"
+elif [ "$INSTALLED_STACK" = "pulseaudio" ]; then
+    log_info "Removing PulseAudio configuration..."
+    rm -f /etc/pulse/daemon.conf.d/10-wm8960.conf
+    rm -f /etc/udev/rules.d/91-wm8960-pulseaudio.rules
+    rm -f /usr/share/pulseaudio/alsa-mixer/profile-sets/wm8960-audiohat.conf
+    rm -f /usr/share/pulseaudio/alsa-mixer/paths/wm8960-output.conf
+    rm -f /usr/share/pulseaudio/alsa-mixer/paths/wm8960-input.conf
+    log_debug "Removed PulseAudio daemon config, udev rule, profile set, and mixer paths"
+else
+    log_debug "No audio server configs to remove (bare ALSA)"
+fi
+
+rm -f /etc/wm8960-audio-stack.conf
+
+# Remove DKMS module if installed
+if command -v dkms &>/dev/null && dkms status wm8960-audio-hat/1.0 2>/dev/null | grep -q .; then
+    log_info "Removing DKMS module..."
+    dkms remove wm8960-audio-hat/1.0 --all 2>/dev/null || log_warn "DKMS remove failed"
+    rm -rf /usr/src/wm8960-audio-hat-1.0
+    log_debug "DKMS module and source removed"
+fi
+
+# Remove WM8960 module if it was built from source (legacy, pre-DKMS)
 if [ -f /etc/armbian-release ]; then
     log_debug "Armbian detected — checking for built-from-source WM8960 module"
     WM8960_MODULE_BASE="/lib/modules/$(uname -r)/kernel/sound/soc/codecs/snd-soc-wm8960"
@@ -114,7 +151,15 @@ else
 fi
 
 # Restore original device tree
-DTB_DIR=$(find /boot -type d -name "allwinner" -path "*/dtb*" 2>/dev/null | head -1)
+# Prefer /boot/dtb (symlink the bootloader actually uses) to avoid
+# restoring the wrong tree when multiple DTB directories exist
+if [ -L /boot/dtb ] || [ -d /boot/dtb ]; then
+    DTB_BASE_DIR=$(readlink -f /boot/dtb)
+    DTB_DIR=$(find "$DTB_BASE_DIR" -type d -name "allwinner" 2>/dev/null | head -1)
+fi
+if [ -z "$DTB_DIR" ]; then
+    DTB_DIR=$(find /boot -type d -name "allwinner" -path "*/dtb*" 2>/dev/null | head -1)
+fi
 log_debug "DTB_DIR=$DTB_DIR"
 if [ -n "$DTB_DIR" ]; then
     BASE_DTB=$(find "$DTB_DIR" -maxdepth 1 -name "sun50i-h61*-orangepi-zero2w.dtb" 2>/dev/null | head -1)

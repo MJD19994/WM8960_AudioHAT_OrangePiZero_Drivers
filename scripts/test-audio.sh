@@ -65,16 +65,19 @@ if [ -z "$I2C_BUS" ]; then
     fi
 fi
 if command -v i2cdetect >/dev/null 2>&1; then
-    I2C_OUTPUT=$(timeout 5 i2cdetect -y "$I2C_BUS" 2>/dev/null || true)
-    if echo "$I2C_OUTPUT" | grep -qE "\b(1a|UU)\b" 2>/dev/null; then
-        if echo "$I2C_OUTPUT" | grep -q "UU" 2>/dev/null; then
-            pass "WM8960 detected on I2C bus $I2C_BUS at 0x1a (driver bound)"
+    if I2C_OUTPUT=$(timeout 5 i2cdetect -y "$I2C_BUS" 2>&1); then
+        if echo "$I2C_OUTPUT" | grep -qE "\b(1a|UU)\b"; then
+            if echo "$I2C_OUTPUT" | grep -q "UU"; then
+                pass "WM8960 detected on I2C bus $I2C_BUS at 0x1a (driver bound)"
+            else
+                pass "WM8960 detected on I2C bus $I2C_BUS at 0x1a"
+            fi
         else
-            pass "WM8960 detected on I2C bus $I2C_BUS at 0x1a"
+            fail "WM8960 not detected on I2C bus $I2C_BUS"
+            ((ERRORS++))
         fi
     else
-        fail "WM8960 not detected on I2C bus $I2C_BUS"
-        ((ERRORS++))
+        warn "Could not scan I2C bus $I2C_BUS: $(printf '%s\n' "$I2C_OUTPUT" | tail -1)"
     fi
 else
     warn "i2cdetect not available — skipping I2C check"
@@ -102,11 +105,11 @@ else
     ((ERRORS++))
 fi
 
-# 5. Check PLL config script
-if [ -x /usr/local/bin/wm8960-pll-config.sh ]; then
-    pass "PLL configuration script installed"
+# 5. Check mixer config script
+if [ -x /usr/local/bin/wm8960-mixer-config.sh ]; then
+    pass "Mixer configuration script installed"
 else
-    fail "PLL configuration script not found at /usr/local/bin/wm8960-pll-config.sh"
+    fail "Mixer configuration script not found at /usr/local/bin/wm8960-mixer-config.sh"
     ((ERRORS++))
 fi
 
@@ -128,18 +131,21 @@ if [ -n "$CARD_NUM" ]; then
     CAPTURE=$(amixer -c "$CARD_NUM" sget "Capture" 2>/dev/null | grep -c "\[on\]")
     BOOST_L=$(amixer -c "$CARD_NUM" sget "Left Input Mixer Boost" 2>/dev/null | grep -c "\[on\]")
     BOOST_R=$(amixer -c "$CARD_NUM" sget "Right Input Mixer Boost" 2>/dev/null | grep -c "\[on\]")
+    BOOST_ROUTE_L=$(amixer -c "$CARD_NUM" sget "Left Boost Mixer LINPUT1" 2>/dev/null | grep -c "\[on\]")
+    BOOST_ROUTE_R=$(amixer -c "$CARD_NUM" sget "Right Boost Mixer RINPUT1" 2>/dev/null | grep -c "\[on\]")
 
     if [ "$PCM_LEFT" -gt 0 ] && [ "$PCM_RIGHT" -gt 0 ]; then
         pass "Playback routing enabled (Output Mixer PCM)"
     else
-        fail "Playback routing disabled — run: sudo /usr/local/bin/wm8960-pll-config.sh"
+        fail "Playback routing disabled — run: sudo /usr/local/bin/wm8960-mixer-config.sh"
         ((ERRORS++))
     fi
 
-    if [ "$CAPTURE" -gt 0 ] && [ "$BOOST_L" -gt 0 ] && [ "$BOOST_R" -gt 0 ]; then
-        pass "Capture routing enabled (Input Mixer Boost)"
+    if [ "$CAPTURE" -gt 0 ] && [ "$BOOST_L" -gt 0 ] && [ "$BOOST_R" -gt 0 ] \
+        && [ "$BOOST_ROUTE_L" -gt 0 ] && [ "$BOOST_ROUTE_R" -gt 0 ]; then
+        pass "Capture routing enabled (Input Mixer Boost + LINPUT1/RINPUT1)"
     else
-        fail "Capture routing disabled — run: sudo /usr/local/bin/wm8960-pll-config.sh"
+        fail "Capture routing disabled — run: sudo /usr/local/bin/wm8960-mixer-config.sh"
         ((ERRORS++))
     fi
 
@@ -149,14 +155,58 @@ if [ -n "$CARD_NUM" ]; then
 fi
 
 # 8. Check dmesg for errors
-WM8960_ERRORS=$(dmesg 2>/dev/null | grep -i wm8960 | grep -ci "error\|fail" || true)
-if [ "$WM8960_ERRORS" -gt 0 ]; then
-    warn "Found $WM8960_ERRORS error(s) in dmesg related to WM8960:"
-    dmesg 2>/dev/null | grep -i wm8960 | grep -i "error\|fail" | tail -3 | while read -r line; do
-        echo "       $line"
-    done
+# Filter out module signing warnings — expected for any DKMS out-of-tree module
+if DMESG_OUTPUT=$(dmesg 2>/dev/null); then
+    WM8960_ERRORS=$(printf '%s\n' "$DMESG_OUTPUT" | grep -i wm8960 \
+        | grep -iv "module verification failed\|tainting kernel\|loading out-of-tree" \
+        | grep -ci "error\|fail" || true)
+    if [ "$WM8960_ERRORS" -gt 0 ]; then
+        warn "Found $WM8960_ERRORS error(s) in dmesg related to WM8960:"
+        printf '%s\n' "$DMESG_OUTPUT" | grep -i wm8960 \
+            | grep -iv "module verification failed\|tainting kernel\|loading out-of-tree" \
+            | grep -i "error\|fail" | tail -3 | while read -r line; do
+            echo "       $line"
+        done
+    else
+        pass "No WM8960 errors in dmesg"
+    fi
 else
-    pass "No WM8960 errors in dmesg"
+    warn "Kernel log is not readable for this user — skipping dmesg check"
+fi
+
+# 9. Check audio server
+if command -v pactl >/dev/null 2>&1 && pactl info >/dev/null 2>&1; then
+    if pactl info 2>/dev/null | grep -q "PulseAudio (on PipeWire"; then
+        info "Audio server: PipeWire"
+        DEFAULT_SINK=$(pactl info 2>/dev/null | sed -n 's/^Default Sink: //p')
+        DEFAULT_SRC=$(pactl info 2>/dev/null | sed -n 's/^Default Source: //p')
+        if echo "$DEFAULT_SINK" | grep -qi "wm8960\|ahub0"; then
+            pass "WM8960 is the default output: $DEFAULT_SINK"
+        else
+            warn "Default output is not WM8960: ${DEFAULT_SINK:-unknown}"
+        fi
+        if echo "$DEFAULT_SRC" | grep -qi "wm8960\|ahub0"; then
+            pass "WM8960 is the default input: $DEFAULT_SRC"
+        else
+            warn "Default input is not WM8960: ${DEFAULT_SRC:-unknown}"
+        fi
+    else
+        info "Audio server: PulseAudio"
+        DEFAULT_SINK=$(pactl info 2>/dev/null | sed -n 's/^Default Sink: //p')
+        DEFAULT_SRC=$(pactl info 2>/dev/null | sed -n 's/^Default Source: //p')
+        if echo "$DEFAULT_SINK" | grep -qi "wm8960\|ahub0"; then
+            pass "WM8960 is the default output: $DEFAULT_SINK"
+        else
+            warn "Default output is not WM8960: ${DEFAULT_SINK:-unknown}"
+        fi
+        if echo "$DEFAULT_SRC" | grep -qi "wm8960\|ahub0"; then
+            pass "WM8960 is the default input: $DEFAULT_SRC"
+        else
+            warn "Default input is not WM8960: ${DEFAULT_SRC:-unknown}"
+        fi
+    fi
+else
+    info "Audio server: none (bare ALSA)"
 fi
 
 # Summary
@@ -296,7 +346,7 @@ else
     echo "Troubleshooting:"
     echo "  - Check service: systemctl status wm8960-audio.service"
     echo "  - Check logs:    journalctl -u wm8960-audio.service"
-    echo "  - Re-run config: sudo /usr/local/bin/wm8960-pll-config.sh"
+    echo "  - Re-run config: sudo /usr/local/bin/wm8960-mixer-config.sh"
     echo "  - Adjust mixer:  alsamixer -c \"$CARD_NAME\""
 fi
 echo ""

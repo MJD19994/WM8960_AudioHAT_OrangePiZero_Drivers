@@ -1,46 +1,14 @@
 # Kernel Installation Guide
 
-This guide covers kernel installation options for WM8960 support on Orange Pi Zero 2W.
+This guide covers kernel compilation options for WM8960 support on Orange Pi Zero 2W.
 
-## Option 1: Use Precompiled Kernel (Recommended)
+> **Note:** The recommended installation method is `sudo ./install.sh` from the project root, which uses DKMS to build the patched WM8960 module automatically against your running kernel. The manual kernel compilation instructions below are only needed if you want to build a fully custom kernel. If you take that path, apply the PLL fixes from `dkms/wm8960.c` to your kernel source or confirm your source already contains them (see `docs/wm8960-driver-patches.md`).
 
-The easiest way is to use our precompiled kernel that includes WM8960 support.
-
-### Download and Install
-
-```bash
-# Download kernel package (46MB)
-wget https://github.com/MJD19994/WM8960_AudioHAT_OrangePiZero_Drivers/releases/download/v1.0/orangepi-zero2w-wm8960-kernel-6.1.31-orangepi.tar.gz
-
-# Extract
-tar -xzf orangepi-zero2w-wm8960-kernel-6.1.31-orangepi.tar.gz
-cd kernel-package
-
-# Install (requires root)
-sudo ./install-kernel.sh
-
-# Verify WM8960 module is available
-modinfo snd_soc_wm8960
-```
-
-### What's Included
-
-- Kernel version: 6.1.31-orangepi
-- WM8960 codec driver (snd-soc-wm8960)
-- Full ALSA/ASoC sound subsystem
-- All dependencies
-
-### Compatibility
-
-- ✅ Orange Pi Zero 2W (H618)
-- ✅ Orange Pi OS 1.0.2 Bookworm
-- ✅ Armbian (may require adaptation)
-
-## Option 2: Compile Your Own Kernel
+## Compile Your Own Kernel
 
 If you prefer to compile your own kernel or need a different version:
 
-### Method A: Native Compilation on Orange Pi (Recommended)
+### Method A: Native Compilation on Orange Pi
 
 Compile directly on your Orange Pi Zero 2W. This is simpler as it doesn't require cross-compilation setup.
 
@@ -206,8 +174,8 @@ zcat /proc/config.gz | grep WM8960
 The kernel doesn't have WM8960 support compiled in.
 
 **Solutions:**
-1. Use our precompiled kernel (easiest)
-2. Recompile kernel with WM8960 enabled
+1. Run `sudo ./install.sh` to build via DKMS (easiest)
+2. Recompile kernel with WM8960 enabled (this guide)
 3. Check if you're running the correct kernel: `uname -r`
 
 ### Module loads but codec not detected
