@@ -47,7 +47,11 @@ if [ -z "$I2C_BUS" ]; then
     I2C_BUS=$(find /sys/bus/i2c/devices/ -maxdepth 1 -name '*-001a' 2>/dev/null \
               | head -1 | sed -n 's|.*/\([0-9]*\)-001a$|\1|p' || true)
     if [ -z "$I2C_BUS" ]; then
-        I2C_BUS=2  # fallback for Orange Pi OS default
+        if [ -f /etc/armbian-release ]; then
+            I2C_BUS=3
+        else
+            I2C_BUS=2  # Orange Pi OS default
+        fi
     fi
 fi
 

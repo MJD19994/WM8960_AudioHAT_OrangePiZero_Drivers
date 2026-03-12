@@ -447,27 +447,27 @@ These are useful for non-standard configurations or systems with multiple WM8960
 For debugging or custom configurations, you can manually configure the PLL:
 
 ```bash
-# The WM8960 sits on hardware I2C1 (i2c@5002400), which appears as Linux bus 2 (/dev/i2c-2).
-# The device ID format is "<linux-bus>-<address>", so the default is "2-001a".
-DEVICE_ID="2-001a"
+# Auto-detect the I2C bus (bus 2 on Orange Pi OS, bus 3 on Armbian)
+I2C_BUS=$(find /sys/bus/i2c/devices/ -maxdepth 1 -name '*-001a' | head -1 | sed -n 's|.*/\([0-9]*\)-001a$|\1|p')
+DEVICE_ID="${I2C_BUS}-001a"
 
 # Disable driver
 echo "$DEVICE_ID" > /sys/bus/i2c/drivers/wm8960/unbind
 
 # Configure PLL registers (example for 24MHz → 12.288MHz)
-i2cset -y 2 0x1a 0x34 0x34  # PLL1: N=4, PRE_DIV=1, SDM mode
-i2cset -y 2 0x1a 0x35 0x18  # PLL2: K[23:16]
-i2cset -y 2 0x1a 0x36 0x93  # PLL3: K[15:8]
-i2cset -y 2 0x1a 0x37 0x75  # PLL4: K[7:0]
-i2cset -y 2 0x1a 0x1a 0x01  # Enable PLL power
+i2cset -y $I2C_BUS 0x1a 0x34 0x34  # PLL1: N=4, PRE_DIV=1, SDM mode
+i2cset -y $I2C_BUS 0x1a 0x35 0x18  # PLL2: K[23:16]
+i2cset -y $I2C_BUS 0x1a 0x36 0x93  # PLL3: K[15:8]
+i2cset -y $I2C_BUS 0x1a 0x37 0x75  # PLL4: K[7:0]
+i2cset -y $I2C_BUS 0x1a 0x1a 0x01  # Enable PLL power
 sleep 0.25
-i2cset -y 2 0x1a 0x04 0x01  # Switch SYSCLK to PLL
+i2cset -y $I2C_BUS 0x1a 0x04 0x01  # Switch SYSCLK to PLL
 
 # Re-enable driver
 echo "$DEVICE_ID" > /sys/bus/i2c/drivers/wm8960/bind
 ```
 
-**Note:** The device ID format is `<linux-bus>-<address>` where the bus number is the **Linux bus number** (check with `i2cdetect -l`) and address is a 4-digit hex value. The I2C bus number varies by OS: bus 2 on Orange Pi OS, bus 3 on Armbian. The mixer configuration script auto-detects the correct bus.
+**Note:** The I2C bus number varies by OS (bus 2 on Orange Pi OS, bus 3 on Armbian). The example above auto-detects it from sysfs. You can also check manually with `i2cdetect -l`.
 
 ## Contributing
 

@@ -8,7 +8,7 @@ This guide covers kernel compilation options for WM8960 support on Orange Pi Zer
 
 If you prefer to compile your own kernel or need a different version:
 
-### Method A: Native Compilation on Orange Pi (Recommended)
+### Method A: Native Compilation on Orange Pi
 
 Compile directly on your Orange Pi Zero 2W. This is simpler as it doesn't require cross-compilation setup.
 
