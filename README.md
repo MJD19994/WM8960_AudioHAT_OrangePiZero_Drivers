@@ -28,7 +28,7 @@ Complete audio support for WM8960-based audio HATs (including ReSpeaker 2-Mic HA
 
 **Supported OS:**
 - [Orange Pi OS 1.0.2 Bookworm (kernel 6.1.31-orangepi)](https://drive.google.com/drive/folders/1cvPUtPOmGfOSxilAHUgq_UqZK5HmzH0t)
-- [Armbian Trixie (kernel 6.12.74-current-sunxi64)](https://www.armbian.com/orangepi-zero2w/)
+- [Armbian Trixie (kernel 6.12.76-current-sunxi64)](https://www.armbian.com/orangepi-zero2w/)
 
 **Requirements:**
 - All prerequisites (I2C tools, device-tree-compiler, ALSA utils, DKMS, kernel headers, build tools) are installed automatically by the installer
@@ -500,4 +500,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-**Status**: ✅ Working on Orange Pi Zero 2W (H618) with Orange Pi OS (kernel 6.1.31) and Armbian Trixie (kernel 6.12.74)
+**Status**: ✅ Working on Orange Pi Zero 2W (H618) with Orange Pi OS (kernel 6.1.31) and Armbian Trixie (kernel 6.12.76)
