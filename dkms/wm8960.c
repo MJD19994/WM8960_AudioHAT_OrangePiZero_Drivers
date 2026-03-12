@@ -1399,7 +1399,11 @@ static const struct regmap_config wm8960_regmap = {
 
 	.reg_defaults = wm8960_reg_defaults,
 	.num_reg_defaults = ARRAY_SIZE(wm8960_reg_defaults),
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 8, 0)
+	.cache_type = REGCACHE_MAPLE,
+#else
 	.cache_type = REGCACHE_RBTREE,
+#endif
 
 	.volatile_reg = wm8960_volatile,
 };
