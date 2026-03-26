@@ -4,6 +4,7 @@
 # Local Claude Code settings (may contain SSH/shell permissions)
 .claude/settings.local.json
 ROADMAP.md
+CLAUDE.md
 
 # Internal development docs (not for distribution)
 docs/wm8960-driver-patches.md

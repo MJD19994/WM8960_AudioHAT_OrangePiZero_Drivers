@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [main, testing]
+  pull_request:
+    branches: [main]
+
+jobs:
+  shellcheck:
+    name: ShellCheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install ShellCheck
+        run: sudo apt-get install -y shellcheck
+
+      - name: Validate shell scripts
+        run: |
+          shellcheck install.sh
+          shellcheck uninstall.sh
+          shellcheck service/wm8960-mixer-config.sh
+          shellcheck service/wm8960-pll-config.sh
+          shellcheck scripts/test-audio.sh
+
+  dts-compile:
+    name: DTS Compilation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install device-tree-compiler
+        run: sudo apt-get install -y device-tree-compiler
+
+      - name: Compile overlays
+        run: |
+          for dts in overlays-orangepi/*.dts; do
+            name=$(basename "$dts")
+            echo "Compiling $name..."
+            dtc -@ -I dts -O dtb -o "/tmp/${name%.dts}.dtbo" "$dts"
+            echo "  OK ($(stat -c%s "/tmp/${name%.dts}.dtbo") bytes)"
+          done

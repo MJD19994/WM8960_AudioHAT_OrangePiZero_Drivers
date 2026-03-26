@@ -64,7 +64,7 @@ detect_os() {
     if [ -f /etc/armbian-release ]; then
         DISTRO="armbian"
         log_info "Detected OS: Armbian"
-    elif uname -r | grep -q "sun50iw9" || ls -d /boot/dtb-*sun50iw9* >/dev/null 2>&1; then
+    elif uname -r | grep -q "sun50iw9" || find /boot/ -maxdepth 1 -name 'dtb-*sun50iw9*' -print -quit 2>/dev/null | grep -q .; then
         DISTRO="orangepi"
         log_info "Detected OS: Orange Pi OS"
     else
@@ -341,14 +341,14 @@ patch_dtb() {
     if [ ! -f "$DTS_SOURCE" ]; then
         log_error "No overlay available for ${soc} on ${DISTRO}"
         log_error "Available overlays:"
-        ls -1 "$SCRIPT_DIR/overlays-orangepi/"*.dts 2>/dev/null | while read -r f; do
+        find "$SCRIPT_DIR/overlays-orangepi/" -name '*.dts' 2>/dev/null | while read -r f; do
             log_error "  $(basename "$f")"
         done
         exit 1
     fi
 
     WORK_DIR=$(mktemp -d)
-    trap "rm -rf '$WORK_DIR'" EXIT
+    trap 'rm -rf "$WORK_DIR"' EXIT
 
     log_debug "Overlay source: $DTS_SOURCE"
     log_debug "Work directory: $WORK_DIR"
