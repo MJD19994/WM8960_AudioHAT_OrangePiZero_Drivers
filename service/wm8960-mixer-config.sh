@@ -123,19 +123,19 @@ configure_pll() {
     (
         set +e
         local_fail=0
-        i2cset -y $I2C_BUS $WM8960_ADDR 0x04 0x00 || { log "ERROR: Failed to write CLOCK1"; local_fail=1; }
-        i2cset -y $I2C_BUS $WM8960_ADDR 0x1a 0x00 || { log "ERROR: Failed to write POWER2"; local_fail=1; }
-        i2cset -y $I2C_BUS $WM8960_ADDR 0x34 $PLL1_VAL || { log "ERROR: Failed to write PLL1"; local_fail=1; }
-        i2cset -y $I2C_BUS $WM8960_ADDR 0x35 $K_HIGH || { log "ERROR: Failed to write PLL2"; local_fail=1; }
-        i2cset -y $I2C_BUS $WM8960_ADDR 0x36 $K_MID || { log "ERROR: Failed to write PLL3"; local_fail=1; }
-        i2cset -y $I2C_BUS $WM8960_ADDR 0x37 $K_LOW || { log "ERROR: Failed to write PLL4"; local_fail=1; }
+        i2cset -y "$I2C_BUS" "$WM8960_ADDR" 0x04 0x00 || { log "ERROR: Failed to write CLOCK1"; local_fail=1; }
+        i2cset -y "$I2C_BUS" "$WM8960_ADDR" 0x1a 0x00 || { log "ERROR: Failed to write POWER2"; local_fail=1; }
+        i2cset -y "$I2C_BUS" "$WM8960_ADDR" 0x34 "$PLL1_VAL" || { log "ERROR: Failed to write PLL1"; local_fail=1; }
+        i2cset -y "$I2C_BUS" "$WM8960_ADDR" 0x35 "$K_HIGH" || { log "ERROR: Failed to write PLL2"; local_fail=1; }
+        i2cset -y "$I2C_BUS" "$WM8960_ADDR" 0x36 "$K_MID" || { log "ERROR: Failed to write PLL3"; local_fail=1; }
+        i2cset -y "$I2C_BUS" "$WM8960_ADDR" 0x37 "$K_LOW" || { log "ERROR: Failed to write PLL4"; local_fail=1; }
 
         if [ $local_fail -eq 0 ]; then
             # Enable PLL
-            i2cset -y $I2C_BUS $WM8960_ADDR 0x1a 0x01 || { log "ERROR: Failed to enable PLL power"; local_fail=1; }
+            i2cset -y "$I2C_BUS" "$WM8960_ADDR" 0x1a 0x01 || { log "ERROR: Failed to enable PLL power"; local_fail=1; }
             sleep 0.25
             # Switch SYSCLK to PLL
-            i2cset -y $I2C_BUS $WM8960_ADDR 0x04 0x01 || { log "ERROR: Failed to set SYSCLK source"; local_fail=1; }
+            i2cset -y "$I2C_BUS" "$WM8960_ADDR" 0x04 0x01 || { log "ERROR: Failed to set SYSCLK source"; local_fail=1; }
         fi
         exit $local_fail
     ) || pll_result=$?

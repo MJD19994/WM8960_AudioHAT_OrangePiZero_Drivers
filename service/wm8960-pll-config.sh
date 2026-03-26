@@ -113,20 +113,20 @@ configure_pll() {
     sleep 0.2
 
     # Configure PLL registers
-    i2cset -y $I2C_BUS $WM8960_ADDR $CLOCK1 0x00 || { log "ERROR: Failed to write CLOCK1"; exit 1; }
-    i2cset -y $I2C_BUS $WM8960_ADDR $POWER2 0x00 || { log "ERROR: Failed to write POWER2"; exit 1; }
-    i2cset -y $I2C_BUS $WM8960_ADDR $PLL1 $PLL1_VAL || { log "ERROR: Failed to write PLL1"; exit 1; }
-    i2cset -y $I2C_BUS $WM8960_ADDR $PLL2 $K_HIGH || { log "ERROR: Failed to write PLL2"; exit 1; }
-    i2cset -y $I2C_BUS $WM8960_ADDR $PLL3 $K_MID || { log "ERROR: Failed to write PLL3"; exit 1; }
-    i2cset -y $I2C_BUS $WM8960_ADDR $PLL4 $K_LOW || { log "ERROR: Failed to write PLL4"; exit 1; }
+    i2cset -y "$I2C_BUS" "$WM8960_ADDR" "$CLOCK1" 0x00 || { log "ERROR: Failed to write CLOCK1"; exit 1; }
+    i2cset -y "$I2C_BUS" "$WM8960_ADDR" "$POWER2" 0x00 || { log "ERROR: Failed to write POWER2"; exit 1; }
+    i2cset -y "$I2C_BUS" "$WM8960_ADDR" "$PLL1" "$PLL1_VAL" || { log "ERROR: Failed to write PLL1"; exit 1; }
+    i2cset -y "$I2C_BUS" "$WM8960_ADDR" "$PLL2" "$K_HIGH" || { log "ERROR: Failed to write PLL2"; exit 1; }
+    i2cset -y "$I2C_BUS" "$WM8960_ADDR" "$PLL3" "$K_MID" || { log "ERROR: Failed to write PLL3"; exit 1; }
+    i2cset -y "$I2C_BUS" "$WM8960_ADDR" "$PLL4" "$K_LOW" || { log "ERROR: Failed to write PLL4"; exit 1; }
 
     # Enable PLL
     log "Enabling PLL..."
-    i2cset -y $I2C_BUS $WM8960_ADDR $POWER2 0x01 || { log "ERROR: Failed to enable PLL power"; exit 1; }
+    i2cset -y "$I2C_BUS" "$WM8960_ADDR" "$POWER2" 0x01 || { log "ERROR: Failed to enable PLL power"; exit 1; }
     sleep 0.25
 
     # Switch SYSCLK to PLL
-    i2cset -y $I2C_BUS $WM8960_ADDR $CLOCK1 0x01 || { log "ERROR: Failed to set SYSCLK source"; exit 1; }
+    i2cset -y "$I2C_BUS" "$WM8960_ADDR" "$CLOCK1" 0x01 || { log "ERROR: Failed to set SYSCLK source"; exit 1; }
 
     # Rebind driver
     log "Rebinding driver..."
