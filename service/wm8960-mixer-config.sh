@@ -396,13 +396,19 @@ wait_for_device
 # On Orange Pi OS, the vendor BSP machine driver doesn't call set_sysclk/set_pll
 # on the codec, so we must configure PLL via direct i2cset.
 if is_armbian; then
-    log_debug "Armbian detected — skipping PLL configuration (handled by driver)"
+    log_debug "Armbian detected — skipping codec PLL configuration (handled by driver)"
 else
     configure_pll
 fi
 
 # Wait for sound card after PLL config (rebind creates new card instance)
 wait_for_soundcard
+
+# Note: SoC audio PLL fix for Armbian kernel 6.13+ is handled by the WM8960
+# DKMS driver itself (wm8960_check_soc_pll in wm8960.c). The driver detects
+# if the H616/H618 PLL_AUDIO failed to lock after AHUB's clk_set_rate() and
+# applies known-good register values as a fallback. No userspace workaround
+# needed here.
 
 # Configure mixer
 configure_mixer

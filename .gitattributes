@@ -1,0 +1,14 @@
+# Force LF line endings for shell scripts (prevents CRLF breakage on Linux)
+*.sh text eol=lf
+
+# Force LF for config files deployed to Linux
+*.conf text eol=lf
+*.service text eol=lf
+*.rules text eol=lf
+*.dts text eol=lf
+
+# Binary files
+*.tar.xz binary
+*.dtbo binary
+*.ko binary
+*.pdf binary
