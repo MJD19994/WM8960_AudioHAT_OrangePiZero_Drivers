@@ -14,7 +14,7 @@ Complete audio support for WM8960-based audio HATs (including ReSpeaker 2-Mic HA
 - ✅ Multi-application audio support (dmix/dsnoop)
 - ✅ PulseAudio and PipeWire integration (auto-detected)
 - ✅ Hardware ALC, Noise Gate, and 3D Enhancement controls exposed
-- ✅ Works with Orange Pi OS (Bookworm, kernel 6.1.31) or Armbian (Trixie, kernel 6.12)
+- ✅ Works with Orange Pi OS (Bookworm, kernel 6.1.31) or Armbian (Trixie, kernel 6.12–6.18+)
 
 ## Hardware Compatibility
 
@@ -28,7 +28,7 @@ Complete audio support for WM8960-based audio HATs (including ReSpeaker 2-Mic HA
 
 **Supported OS:**
 - [Orange Pi OS 1.0.2 Bookworm (kernel 6.1.31-orangepi)](https://drive.google.com/drive/folders/1cvPUtPOmGfOSxilAHUgq_UqZK5HmzH0t)
-- [Armbian Trixie (kernel 6.12.76-current-sunxi64)](https://www.armbian.com/orangepi-zero2w/)
+- [Armbian Trixie (kernel 6.12–6.18+)](https://www.armbian.com/orangepi-zero2w/)
 
 **Requirements:**
 - All prerequisites (I2C tools, device-tree-compiler, ALSA utils, DKMS, kernel headers, build tools) are installed automatically by the installer
@@ -124,6 +124,7 @@ This package provides:
    - Patched WM8960 codec driver built via DKMS against your running kernel
    - Automatically rebuilds on kernel upgrades
    - Includes PLL fixes for proper clock generation from onboard 24MHz crystal
+   - Includes automatic workaround for Armbian kernel 6.13+ CCU PLL regression (detects PLL lock failure and applies correct clock values)
 
 3. **Mixer Configuration Service** (`service/wm8960-mixer-config.sh`)
    - Runs at boot via systemd
@@ -405,6 +406,12 @@ If the steps below don't help, check the service logs with `journalctl -u wm8960
 - After boot, this message should not appear during playback
 - If it persists, the service may have failed
 
+**"H616 PLL_AUDIO not locked, applying fallback" in dmesg:**
+- This is expected on Armbian kernel 6.13+ and means the automatic PLL fix is working
+- The CCU driver in these kernels has a regression that prevents correct audio PLL configuration
+- The DKMS driver detects this and applies the correct clock values automatically
+- Audio should work normally after this message appears
+
 **Audio too quiet:**
 - Increase mixer volumes: `amixer -c ahub0wm8960 sset 'Headphone' 127`
 - Check playback volume: `amixer -c ahub0wm8960 sset 'Playback' 255`
@@ -500,4 +507,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-**Status**: ✅ Working on Orange Pi Zero 2W (H618) with Orange Pi OS (kernel 6.1.31) and Armbian Trixie (kernel 6.12.76)
+**Status**: ✅ Working on Orange Pi Zero 2W (H618) with Orange Pi OS (kernel 6.1.31) and Armbian Trixie (kernel 6.12–6.18+)
