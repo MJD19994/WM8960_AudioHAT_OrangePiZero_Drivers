@@ -310,8 +310,11 @@ configure_mixer() {
     if [ "$RESET_DEFAULTS" = true ]; then
         log "Resetting mixer to factory defaults (--reset-defaults)..."
         apply_mixer_defaults "$CARD_NUM"
-        alsactl store "$CARD_NUM" >/dev/null 2>&1 || true
-        log "Factory defaults applied and saved!"
+        if alsactl store "$CARD_NUM" >/dev/null 2>&1; then
+            log "Factory defaults applied and saved!"
+        else
+            log "WARNING: Factory defaults applied, but failed to save mixer state"
+        fi
     elif has_saved_state "$CARD_NUM"; then
         log "Restoring saved mixer state..."
         if alsactl restore "$CARD_NUM" >/dev/null 2>&1; then
@@ -319,15 +322,20 @@ configure_mixer() {
         else
             log "WARNING: Failed to restore saved state, applying defaults..."
             apply_mixer_defaults "$CARD_NUM"
-            alsactl store "$CARD_NUM" >/dev/null 2>&1 || true
+            if ! alsactl store "$CARD_NUM" >/dev/null 2>&1; then
+                log "WARNING: Failed to save mixer state"
+            fi
         fi
     else
         log "No saved state found — applying defaults..."
         apply_mixer_defaults "$CARD_NUM"
 
         # Save initial defaults so future boots know state exists
-        alsactl store "$CARD_NUM" >/dev/null 2>&1 || true
-        log "Mixer defaults applied and saved!"
+        if alsactl store "$CARD_NUM" >/dev/null 2>&1; then
+            log "Mixer defaults applied and saved!"
+        else
+            log "WARNING: Mixer defaults applied, but failed to save state"
+        fi
     fi
 }
 
