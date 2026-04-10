@@ -1,5 +1,19 @@
 # WM8960 Audio HAT Drivers for Orange Pi (H616/H618)
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![GitHub release](https://img.shields.io/github/v/release/MJD19994/WM8960_AudioHAT_OrangePiZero_Drivers)](https://github.com/MJD19994/WM8960_AudioHAT_OrangePiZero_Drivers/releases)
+[![CI](https://github.com/MJD19994/WM8960_AudioHAT_OrangePiZero_Drivers/actions/workflows/ci.yml/badge.svg)](https://github.com/MJD19994/WM8960_AudioHAT_OrangePiZero_Drivers/actions/workflows/ci.yml)
+![Orange Pi Zero 2W](https://img.shields.io/badge/Orange%20Pi%20Zero%202W-supported-success?style=flat-square)
+![Orange Pi OS](https://img.shields.io/badge/Orange%20Pi%20OS-kernel%206.1-2ea44f?style=flat-square)
+![Armbian](https://img.shields.io/badge/Armbian-kernel%206.12--6.18+-2ea44f?style=flat-square)
+![DKMS](https://img.shields.io/badge/DKMS-supported-yellow?style=flat-square)
+![ALSA](https://img.shields.io/badge/ALSA-integrated-blue?style=flat-square)
+![PulseAudio](https://img.shields.io/badge/PulseAudio-supported-blue?style=flat-square)
+![PipeWire](https://img.shields.io/badge/PipeWire-supported-blue?style=flat-square)
+![ReSpeaker](https://img.shields.io/badge/ReSpeaker%202--Mic-compatible-1f6feb?style=flat-square)
+![Waveshare](https://img.shields.io/badge/Waveshare%20WM8960-compatible-1f6feb?style=flat-square)
+![Seeed Studio](https://img.shields.io/badge/Seeed%20Studio-compatible-1f6feb?style=flat-square)
+
 Complete audio support for WM8960-based audio HATs (including ReSpeaker 2-Mic HAT) on Orange Pi boards with Allwinner H616/H618 SoCs.
 
 ## Features
